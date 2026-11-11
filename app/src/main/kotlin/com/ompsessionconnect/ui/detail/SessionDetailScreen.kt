@@ -45,6 +45,7 @@ import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -1011,6 +1012,9 @@ private fun AskPanel(
             val checked = index in request.checkedIndices
             OutlinedButton(
               onClick = { onAnswer(option.label) },
+              colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+              ),
               modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 2.dp),
@@ -1026,7 +1030,12 @@ private fun AskPanel(
               }
             }
           }
-          TextButton(onClick = { onAnswer(null) }) {
+          TextButton(
+            onClick = { onAnswer(null) },
+            colors = ButtonDefaults.textButtonColors(
+              contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+            ),
+          ) {
             Text(stringResource(R.string.prompt_cancel))
           }
         }
@@ -1042,7 +1051,12 @@ private fun AskPanel(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End,
           ) {
-            TextButton(onClick = { onAnswer(null) }) {
+            TextButton(
+              onClick = { onAnswer(null) },
+              colors = ButtonDefaults.textButtonColors(
+                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+              ),
+            ) {
               Text(stringResource(R.string.prompt_cancel))
             }
             Button(onClick = { onAnswer(editor) }) {
