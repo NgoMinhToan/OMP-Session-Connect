@@ -11,6 +11,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +21,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -34,13 +37,16 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Send
+import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material.icons.outlined.Lock
@@ -57,6 +63,7 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -82,8 +89,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import com.ompsessionconnect.R
 import com.ompsessionconnect.domain.model.AssistantMessageItem
@@ -94,7 +104,10 @@ import com.ompsessionconnect.domain.model.SessionPhase
 import com.ompsessionconnect.domain.model.SessionSnapshot
 import com.ompsessionconnect.domain.model.SummaryItem
 import com.ompsessionconnect.domain.model.ToolCallItem
+import com.ompsessionconnect.domain.model.SubagentInfo
+import com.ompsessionconnect.domain.model.SubagentStatus
 import com.ompsessionconnect.domain.model.TodoProgress
+import com.ompsessionconnect.domain.model.TodoStatus
 import com.ompsessionconnect.domain.model.ToolStatus
 import com.ompsessionconnect.domain.model.TranscriptItem
 import com.ompsessionconnect.domain.model.UiRequest
@@ -191,6 +204,12 @@ private fun SessionDetailContent(
   val status = overview.status
   var menuOpen by remember { mutableStateOf(false) }
   var closeConfirm by remember { mutableStateOf(false) }
+  var subagentsOpen by remember { mutableStateOf(false) }
+  var selectedAgent by remember { mutableStateOf<SubagentInfo?>(null) }
+  var agentItems by remember { mutableStateOf<List<TranscriptItem>>(emptyList()) }
+  var agentLoading by remember { mutableStateOf(false) }
+  var agentError by remember { mutableStateOf<String?>(null) }
+  var todoSheetOpen by remember { mutableStateOf(false) }
   val listState = rememberLazyListState()
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
@@ -224,6 +243,36 @@ private fun SessionDetailContent(
     }
     lifecycleOwner.lifecycle.addObserver(observer)
     onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+  }
+
+  fun loadAgentTranscript(agent: SubagentInfo) {
+    selectedAgent = agent
+    agentItems = emptyList()
+    agentError = null
+    agentLoading = true
+    scope.launch {
+      val collected = mutableListOf<TranscriptItem>()
+      val seenIds = mutableSetOf<String>()
+      var offset = 0L
+      var pages = 0
+      while (pages < 5) {
+        val result = appViewModel.fetchTranscript(overview.id, agent.id, offset)
+        if (result.isFailure) {
+          agentError = result.exceptionOrNull()?.message
+            ?: context.getString(R.string.subagent_transcript_error)
+          break
+        }
+        val page = result.getOrThrow()
+        page.items.forEach { item ->
+          if (seenIds.add(item.id)) collected.add(item)
+        }
+        if (page.items.isEmpty() || page.nextOffset <= offset) break
+        offset = page.nextOffset
+        pages++
+      }
+      agentItems = collected
+      agentLoading = false
+    }
   }
 
   fun onMicClick() {
@@ -304,7 +353,7 @@ private fun SessionDetailContent(
         Column(modifier = Modifier.imePadding()) {
           snapshot.todos?.let { todos ->
             if (todos.tasks.isNotEmpty()) {
-              TodoStrip(todos)
+              TodoStrip(todos, onClick = { todoSheetOpen = true })
             }
           }
           AnimatedVisibility(visible = voice.listening) {
@@ -381,6 +430,12 @@ private fun SessionDetailContent(
         StateBanners(state = state, onReconnect = { appViewModel.reconnect(overview.id) })
         if (state.phase == SessionPhase.LIVE || state.phase == SessionPhase.CONNECTING) {
           SessionMeta(state)
+          if (state.subagents.isNotEmpty()) {
+            SubagentBar(
+              agents = state.subagents,
+              onClick = { subagentsOpen = true },
+            )
+          }
         }
         state.notices.lastOrNull { it.level != NoticeLevel.INFO }?.let { notice ->
           if (System.currentTimeMillis() - notice.timestamp < 120_000) {
@@ -442,6 +497,36 @@ private fun SessionDetailContent(
         }
       }
     }
+  }
+
+  val agents = snapshot?.subagents.orEmpty()
+  if (subagentsOpen) {
+    SubagentsSheet(
+      agents = agents,
+      onDismiss = { subagentsOpen = false },
+      onView = { agent ->
+        subagentsOpen = false
+        loadAgentTranscript(agent)
+      },
+    )
+  }
+  selectedAgent?.let { agent ->
+    AgentTranscriptDialog(
+      agent = agent,
+      items = agentItems,
+      loading = agentLoading,
+      error = agentError,
+      onRefresh = { loadAgentTranscript(agent) },
+      onDismiss = {
+        selectedAgent = null
+        agentItems = emptyList()
+        agentError = null
+      },
+    )
+  }
+  val todoProgress = snapshot?.todos
+  if (todoSheetOpen && todoProgress != null) {
+    TodoSheet(todos = todoProgress, onDismiss = { todoSheetOpen = false })
   }
 
   if (closeConfirm) {
@@ -918,9 +1003,300 @@ private fun Composer(
 }
 
 @Composable
-private fun TodoStrip(todos: TodoProgress) {
+private fun SubagentBar(
+  agents: List<SubagentInfo>,
+  onClick: () -> Unit,
+) {
   Surface(
-    modifier = Modifier.fillMaxWidth(),
+    modifier = Modifier
+      .fillMaxWidth()
+      .padding(horizontal = 16.dp, vertical = 2.dp)
+      .clickable(onClick = onClick),
+    shape = MaterialTheme.shapes.large,
+    color = MaterialTheme.colorScheme.surfaceContainer,
+  ) {
+    Row(
+      modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+      Icon(
+        Icons.Outlined.AccountCircle,
+        contentDescription = null,
+        modifier = Modifier.size(20.dp),
+        tint = MaterialTheme.colorScheme.tertiary,
+      )
+      Column(modifier = Modifier.weight(1f)) {
+        Text(stringResource(R.string.subagents_title), style = MaterialTheme.typography.labelLarge)
+        Text(
+          text = stringResource(
+            R.string.subagent_summary,
+            agents.count { it.status == SubagentStatus.RUNNING },
+            agents.size,
+          ),
+          style = MaterialTheme.typography.labelSmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+      Icon(
+        Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+        contentDescription = null,
+        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+    }
+  }
+}
+
+@Composable
+private fun SubagentsSheet(
+  agents: List<SubagentInfo>,
+  onDismiss: () -> Unit,
+  onView: (SubagentInfo) -> Unit,
+) {
+  ModalBottomSheet(onDismissRequest = onDismiss) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+      Text(stringResource(R.string.subagents_title), style = MaterialTheme.typography.titleMedium)
+      if (agents.isEmpty()) {
+        Text(
+          text = stringResource(R.string.subagent_transcript_empty),
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          modifier = Modifier.padding(vertical = 16.dp),
+        )
+      } else {
+        LazyColumn(modifier = Modifier.heightIn(max = 520.dp)) {
+          items(agents, key = { it.id }, contentType = { "subagent" }) { agent ->
+            Row(
+              modifier = Modifier
+                .fillMaxWidth()
+                .clickable(enabled = agent.hasSessionFile) { onView(agent) }
+                .padding(vertical = 10.dp),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+              Box(
+                modifier = Modifier
+                  .size(9.dp)
+                  .background(subagentStatusColor(agent.status), CircleShape),
+              )
+              Column(modifier = Modifier.weight(1f)) {
+                Text(agent.displayName, style = MaterialTheme.typography.bodyLarge)
+                Text(
+                  text = stringResource(subagentStatusRes(agent.status)) +
+                    if (!agent.hasSessionFile) " · no transcript" else "",
+                  style = MaterialTheme.typography.labelSmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+              }
+              TextButton(
+                onClick = { onView(agent) },
+                enabled = agent.hasSessionFile,
+              ) {
+                Text(stringResource(R.string.subagent_view))
+              }
+            }
+            HorizontalDivider()
+          }
+        }
+      }
+      Spacer(Modifier.height(16.dp))
+    }
+  }
+}
+
+@Composable
+private fun AgentTranscriptDialog(
+  agent: SubagentInfo,
+  items: List<TranscriptItem>,
+  loading: Boolean,
+  error: String?,
+  onRefresh: () -> Unit,
+  onDismiss: () -> Unit,
+) {
+  Dialog(
+    onDismissRequest = onDismiss,
+    properties = DialogProperties(usePlatformDefaultWidth = false),
+  ) {
+    Surface(
+      modifier = Modifier
+        .fillMaxWidth(0.94f)
+        .fillMaxHeight(0.82f),
+      shape = MaterialTheme.shapes.extraLarge,
+      color = MaterialTheme.colorScheme.surface,
+    ) {
+      Column {
+        Row(
+          modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+          Column(modifier = Modifier.weight(1f)) {
+            Text(agent.displayName, style = MaterialTheme.typography.titleMedium)
+            Text(
+              text = stringResource(subagentStatusRes(agent.status)),
+              style = MaterialTheme.typography.labelSmall,
+              color = subagentStatusColor(agent.status),
+            )
+          }
+          IconButton(onClick = onDismiss) {
+            Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.action_close))
+          }
+        }
+        if (loading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        error?.let {
+          Text(
+            text = it,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.error,
+          )
+        }
+        if (items.isEmpty() && !loading && error == null) {
+          Text(
+            text = stringResource(R.string.subagent_transcript_empty),
+            modifier = Modifier.padding(16.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        } else {
+          LazyColumn(
+            modifier = Modifier.weight(1f),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            items(items, key = { it.id }, contentType = { it.itemType.name }) { item ->
+              TranscriptRow(item)
+            }
+          }
+        }
+        Row(
+          modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+          horizontalArrangement = Arrangement.End,
+        ) {
+          TextButton(onClick = onRefresh, enabled = !loading) {
+            Text(stringResource(R.string.subagent_transcript_refresh))
+          }
+          TextButton(onClick = onDismiss) {
+            Text(stringResource(R.string.action_close))
+          }
+        }
+      }
+    }
+  }
+}
+
+@Composable
+private fun subagentStatusRes(status: SubagentStatus): Int = when (status) {
+  SubagentStatus.RUNNING -> R.string.subagent_status_running
+  SubagentStatus.IDLE -> R.string.subagent_status_idle
+  SubagentStatus.PARKED -> R.string.subagent_status_parked
+  SubagentStatus.ABORTED -> R.string.subagent_status_aborted
+}
+
+@Composable
+private fun subagentStatusColor(status: SubagentStatus): Color = when (status) {
+  SubagentStatus.RUNNING -> MaterialTheme.colorScheme.primary
+  SubagentStatus.IDLE -> MaterialTheme.colorScheme.onSurfaceVariant
+  SubagentStatus.PARKED -> MaterialTheme.colorScheme.tertiary
+  SubagentStatus.ABORTED -> MaterialTheme.colorScheme.error
+}
+
+@Composable
+private fun TodoSheet(todos: TodoProgress, onDismiss: () -> Unit) {
+  ModalBottomSheet(onDismissRequest = onDismiss) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+      ) {
+        Text(stringResource(R.string.todo_all_title), style = MaterialTheme.typography.titleMedium)
+        Text(
+          text = "${todos.completed}/${todos.total}",
+          style = MaterialTheme.typography.labelMedium,
+          color = MaterialTheme.colorScheme.primary,
+        )
+      }
+      LazyColumn(modifier = Modifier.heightIn(max = 560.dp)) {
+        items(
+          items = todos.tasks,
+          key = { "${it.phase}|${it.content}" },
+          contentType = { "todo" },
+        ) { task ->
+          Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 9.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+          ) {
+            Box(
+              modifier = Modifier
+                .padding(top = 5.dp)
+                .size(9.dp)
+                .background(todoStatusColor(task.status), CircleShape),
+            )
+            Column(modifier = Modifier.weight(1f)) {
+              Text(
+                text = task.content,
+                style = MaterialTheme.typography.bodyMedium,
+                textDecoration = if (
+                  task.status == TodoStatus.COMPLETED || task.status == TodoStatus.ABANDONED
+                ) {
+                  TextDecoration.LineThrough
+                } else {
+                  null
+                },
+              )
+              Text(
+                text = task.phase,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+              )
+              task.blocker?.let {
+                Text(
+                  text = it,
+                  style = MaterialTheme.typography.labelSmall,
+                  color = MaterialTheme.colorScheme.error,
+                )
+              }
+            }
+            Text(
+              text = todoStatusLabel(task.status),
+              style = MaterialTheme.typography.labelSmall,
+              color = todoStatusColor(task.status),
+            )
+          }
+          HorizontalDivider()
+        }
+      }
+      Spacer(Modifier.height(16.dp))
+    }
+  }
+}
+
+@Composable
+private fun todoStatusColor(status: TodoStatus): Color = when (status) {
+  TodoStatus.COMPLETED -> MaterialTheme.colorScheme.primary
+  TodoStatus.IN_PROGRESS -> MaterialTheme.colorScheme.tertiary
+  TodoStatus.BLOCKED -> MaterialTheme.colorScheme.error
+  TodoStatus.ABANDONED -> MaterialTheme.colorScheme.outline
+  TodoStatus.PENDING -> MaterialTheme.colorScheme.onSurfaceVariant
+}
+
+@Composable
+private fun todoStatusLabel(status: TodoStatus): String = stringResource(
+  when (status) {
+    TodoStatus.PENDING -> R.string.todo_status_pending
+    TodoStatus.IN_PROGRESS -> R.string.todo_status_in_progress
+    TodoStatus.COMPLETED -> R.string.todo_status_completed
+    TodoStatus.ABANDONED -> R.string.todo_status_abandoned
+    TodoStatus.BLOCKED -> R.string.todo_status_blocked
+  },
+)
+
+@Composable
+private fun TodoStrip(todos: TodoProgress, onClick: () -> Unit) {
+  Surface(
+    modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
     color = MaterialTheme.colorScheme.surfaceContainerHigh,
   ) {
     Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) {
@@ -933,6 +1309,12 @@ private fun TodoStrip(todos: TodoProgress) {
         LinearProgressIndicator(
           progress = { if (todos.total == 0) 0f else todos.completed.toFloat() / todos.total },
           modifier = Modifier.weight(1f),
+        )
+        Icon(
+          Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+          contentDescription = stringResource(R.string.todo_view_all),
+          modifier = Modifier.size(18.dp),
+          tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
       }
       todos.next?.content?.let { current ->

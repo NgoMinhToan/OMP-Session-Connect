@@ -131,11 +131,19 @@ class SessionNotifier @Inject constructor(
     val message = alert.message?.takeIf { it.isNotBlank() }
     val content = if (showMessage && message != null) message else progressText
     val subText = if (showMessage && showProgress && message != null && alert.total > 0) progressText else null
+    val expanded = buildString {
+      if (showMessage && message != null) append(message)
+      if (showProgress && alert.total > 0) {
+        if (isNotEmpty()) append("\n\n")
+        append(progressText)
+      }
+      if (isEmpty()) append(progressText)
+    }
     val builder = NotificationCompat.Builder(context, CHANNEL_LIVE)
       .setSmallIcon(R.drawable.ic_stat_omp)
       .setContentTitle(alert.title)
       .setContentText(content)
-      .setStyle(NotificationCompat.BigTextStyle().bigText(content))
+      .setStyle(NotificationCompat.BigTextStyle().bigText(expanded))
       .setContentIntent(openSessionIntent(alert.sessionId))
       .setOngoing(true)
       .setOnlyAlertOnce(true)

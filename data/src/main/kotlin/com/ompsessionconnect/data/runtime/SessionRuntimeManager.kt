@@ -6,13 +6,12 @@ import com.ompsessionconnect.data.link.CollabLink
 import com.ompsessionconnect.data.link.CollabLinkParser
 import com.ompsessionconnect.data.store.SessionStore
 import com.ompsessionconnect.data.store.StoredSession
-import com.ompsessionconnect.domain.model.AssistantMessageItem
+import com.ompsessionconnect.domain.model.AgentTranscriptPage
 import com.ompsessionconnect.domain.model.SessionAlert
 import com.ompsessionconnect.domain.model.NoticeLevel
 import com.ompsessionconnect.domain.model.SessionPhase
 import com.ompsessionconnect.domain.model.SessionSnapshot
-import com.ompsessionconnect.domain.model.ToolCallItem
-import com.ompsessionconnect.domain.model.UserMessageItem
+import com.ompsessionconnect.domain.model.latestMessageText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -80,6 +79,14 @@ class SessionRuntimeManager(
 
   fun sendCommand(sessionId: String, text: String): Result<Unit> =
     synchronized(lock) { connections[sessionId] }?.sendCommand(text)
+      ?: Result.failure(IllegalStateException("Session is not running"))
+
+  suspend fun fetchAgentTranscript(
+    sessionId: String,
+    agentId: String,
+    fromOffset: Long,
+  ): Result<AgentTranscriptPage> =
+    synchronized(lock) { connections[sessionId] }?.fetchAgentTranscript(agentId, fromOffset)
       ?: Result.failure(IllegalStateException("Session is not running"))
 
   fun abort(sessionId: String) {
@@ -212,7 +219,7 @@ class SessionRuntimeManager(
 
     val progress = next.todos
     val startedWorking = !prior.working && next.working
-    val liveText = latestLiveText(next)
+    val liveText = next.latestMessageText()?.let(::compactLive)
     val textChanged = liveText != lastLiveText[next.sessionId]
     val todoChanged = progress != prior.todos
     if (next.working && (startedWorking || textChanged || todoChanged)) {
@@ -235,18 +242,6 @@ class SessionRuntimeManager(
     }
   }
 
-  private fun latestLiveText(snapshot: SessionSnapshot): String? {
-    snapshot.streamingText?.takeIf { it.isNotBlank() }?.let { return compactLive(it) }
-    for (item in snapshot.transcript.asReversed()) {
-      when (item) {
-        is AssistantMessageItem -> if (item.text.isNotBlank()) return compactLive(item.text)
-        is UserMessageItem -> if (item.text.isNotBlank()) return compactLive(item.text)
-        is ToolCallItem -> return compactLive("${item.toolName} · ${item.arguments}")
-        else -> Unit
-      }
-    }
-    return null
-  }
 
   private fun compactLive(text: String): String {
     val singleLine = text.replace('\n', ' ').replace(Regex("\\s+"), " ").trim()
@@ -289,6 +284,7 @@ class SessionRuntimeManager(
       queuedMessages = 0,
       participantCount = 0,
       activeAgents = 0,
+      subagents = emptyList(),
       loadingReceived = 0,
       loadingTotal = 0,
       transcript = emptyList(),

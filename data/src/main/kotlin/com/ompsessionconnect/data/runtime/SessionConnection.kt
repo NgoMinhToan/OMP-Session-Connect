@@ -10,15 +10,19 @@ import com.ompsessionconnect.data.protocol.boolean
 import com.ompsessionconnect.data.protocol.array
 import com.ompsessionconnect.data.protocol.compact
 import com.ompsessionconnect.data.protocol.int
+import com.ompsessionconnect.data.protocol.long
 import com.ompsessionconnect.data.protocol.obj
 import com.ompsessionconnect.data.protocol.string
 import com.ompsessionconnect.data.protocol.textOrNull
 import com.ompsessionconnect.data.remote.CollabSocket
+import com.ompsessionconnect.domain.model.AgentTranscriptPage
 import com.ompsessionconnect.domain.model.AssistantMessageItem
 import com.ompsessionconnect.domain.model.NoticeLevel
 import com.ompsessionconnect.domain.model.SessionNotice
 import com.ompsessionconnect.domain.model.SessionPhase
 import com.ompsessionconnect.domain.model.SessionSnapshot
+import com.ompsessionconnect.domain.model.SubagentInfo
+import com.ompsessionconnect.domain.model.SubagentStatus
 import com.ompsessionconnect.domain.model.ToolCallItem
 import com.ompsessionconnect.domain.model.TodoProgress
 import com.ompsessionconnect.domain.model.ToolStatus
@@ -30,11 +34,13 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -42,6 +48,8 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import okhttp3.OkHttpClient
 import java.util.ArrayDeque
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Owns the live replica of one omp collab room.
@@ -98,6 +106,9 @@ class SessionConnection(
   private var endedReason: String? = null
   private var todos: TodoProgress? = null
   private var mainAgentId: String = "Main"
+  private var subagents: List<SubagentInfo> = emptyList()
+  private val transcriptRequests = ConcurrentHashMap<Int, CompletableDeferred<Result<AgentTranscriptPage>>>()
+  private val transcriptSeq = AtomicInteger(0)
   private var phase = SessionPhase.CONNECTING
 
   private val activeToolNames = LinkedHashMap<String, String>()
@@ -135,6 +146,8 @@ class SessionConnection(
     snapshotJob?.cancel()
     socket?.close()
     socket = null
+    transcriptRequests.values.forEach { it.cancel() }
+    transcriptRequests.clear()
     scope.cancel()
   }
 
@@ -259,12 +272,7 @@ class SessionConnection(
         publish()
       }
       "agents" -> {
-        val agents = frame.array("agents").orEmpty().mapNotNull { it as? JsonObject }
-        activeAgents = agents.count { it.string("status") == "running" }
-        agents.firstOrNull { it.string("kind") == "main" }
-          ?.string("id")
-          ?.takeIf { it.isNotBlank() }
-          ?.let { mainAgentId = it }
+        applyAgents(frame.array("agents").orEmpty().mapNotNull { it as? JsonObject })
         publish()
       }
       "ui-request" -> {
@@ -280,6 +288,30 @@ class SessionConnection(
           uiQueue.removeAll { it.requestId == requestId }
         }
         publish()
+      }
+      "transcript" -> {
+        val requestId = frame.int("reqId") ?: return
+        val pending = transcriptRequests.remove(requestId) ?: return
+        val error = frame.string("error")
+        if (error != null) {
+          pending.complete(Result.failure(IllegalStateException(error)))
+          return
+        }
+        val text = frame.string("text").orEmpty()
+        val builder = TranscriptBuilder()
+        val entries = text.lineSequence()
+          .filter { it.isNotBlank() }
+          .mapNotNull { Wire.parseObject(it) }
+          .toList()
+        builder.applyEntries(entries)
+        pending.complete(
+          Result.success(
+            AgentTranscriptPage(
+              items = builder.items.toList(),
+              nextOffset = frame.long("newSize") ?: 0L,
+            ),
+          ),
+        )
       }
       "bye" -> {
         endedReason = frame.string("reason") ?: "Session ended"
@@ -319,6 +351,7 @@ class SessionConnection(
     retryJob = null
 
     val header = frame.obj("header")
+    applyAgents(frame.array("agents").orEmpty().mapNotNull { it as? JsonObject })
     val state = RemoteParsers.parseState(frame)
     applyState(state)
     header?.string("cwd")?.let { cwd = it }
@@ -508,6 +541,55 @@ class SessionConnection(
     }
   }
 
+  private fun applyAgents(agents: List<JsonObject>) {
+    mainAgentId = agents.firstOrNull { it.string("kind") == "main" }
+      ?.string("id")
+      ?.takeIf { it.isNotBlank() }
+      ?: mainAgentId
+    subagents = agents
+      .filter { it.string("kind") == "sub" }
+      .mapNotNull { agent ->
+        val id = agent.string("id") ?: return@mapNotNull null
+        SubagentInfo(
+          id = id,
+          displayName = agent.string("displayName") ?: id,
+          status = when (agent.string("status")) {
+            "running" -> SubagentStatus.RUNNING
+            "parked" -> SubagentStatus.PARKED
+            "aborted" -> SubagentStatus.ABORTED
+            else -> SubagentStatus.IDLE
+          },
+          parentId = agent.string("parentId"),
+          hasSessionFile = agent.boolean("hasSessionFile") == true,
+          lastActivity = agent.long("lastActivity") ?: 0L,
+        )
+      }
+    activeAgents = subagents.count { it.status == SubagentStatus.RUNNING }
+  }
+
+  suspend fun fetchAgentTranscript(agentId: String, fromOffset: Long): Result<AgentTranscriptPage> {
+    if (closedByUser) return Result.failure(IllegalStateException("Session is closed"))
+    val requestId = transcriptSeq.incrementAndGet()
+    val pending = CompletableDeferred<Result<AgentTranscriptPage>>()
+    transcriptRequests[requestId] = pending
+    val frame = buildJsonObject {
+      put("t", "fetch-transcript")
+      put("reqId", requestId)
+      put("agentId", agentId)
+      put("fromByte", fromOffset)
+    }
+    val sent = socket?.send(frame) == true
+    if (!sent) {
+      transcriptRequests.remove(requestId)
+      pending.cancel()
+      return Result.failure(IllegalStateException("Session is not connected"))
+    }
+    val result = withTimeoutOrNull(10_000L) { pending.await() }
+      ?: Result.failure(IllegalStateException("Timed out loading subagent transcript"))
+    transcriptRequests.remove(requestId)
+    return result
+  }
+
   private fun updateTodosFromEntry(entry: JsonObject) {
     TodoParser.fromEntry(entry)?.let { todos = it }
   }
@@ -606,6 +688,7 @@ class SessionConnection(
       queuedMessages = queuedMessages,
       participantCount = participantCount,
       activeAgents = activeAgents,
+      subagents = subagents,
       loadingReceived = receivedEntries,
       loadingTotal = loadingTotal,
       transcript = transcriptView,
@@ -634,6 +717,7 @@ class SessionConnection(
     queuedMessages = 0,
     participantCount = 0,
     activeAgents = 0,
+    subagents = emptyList(),
     loadingReceived = 0,
     loadingTotal = 0,
     transcript = emptyList(),

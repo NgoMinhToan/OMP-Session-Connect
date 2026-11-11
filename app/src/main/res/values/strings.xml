@@ -184,4 +184,22 @@
   <string name="voice_error_generic">Voice input failed. Try again.</string>
 
   <string name="session_command_hint">Session command · sent to the OMP host</string>
+
+  <string name="subagents_title">Subagents</string>
+  <string name="subagent_view">View transcript</string>
+  <string name="subagent_transcript_empty">No transcript yet.</string>
+  <string name="subagent_transcript_error">Could not load the subagent transcript.</string>
+  <string name="subagent_transcript_refresh">Refresh</string>
+  <string name="subagent_status_running">Running</string>
+  <string name="subagent_status_idle">Idle</string>
+  <string name="subagent_status_parked">Parked</string>
+  <string name="subagent_status_aborted">Aborted</string>
+  <string name="subagent_summary">%1$d running · %2$d total</string>
+  <string name="todo_all_title">Todo tasks</string>
+  <string name="todo_view_all">All tasks</string>
+  <string name="todo_status_pending">Pending</string>
+  <string name="todo_status_in_progress">In progress</string>
+  <string name="todo_status_completed">Completed</string>
+  <string name="todo_status_abandoned">Abandoned</string>
+  <string name="todo_status_blocked">Blocked</string>
 </resources>

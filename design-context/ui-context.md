@@ -20,6 +20,9 @@
 | 06 | QR scanner | `06-qr-scanner.png` | Quét QR `/collab`, torch, fallback dán link |
 | 07 | Settings — dark | `07-settings-dark.png` | Theme và bật/tắt thông báo |
 | 08 | Settings — light | `08-settings-light.png` | Cùng màn hình ở theme sáng |
+| 10 | Subagent list sheet | `10-subagents.png` | Danh sách subagent, trạng thái, mở transcript |
+| 11 | Subagent transcript | `11-subagent-transcript.png` | Transcript riêng của subagent được fetch từ host |
+| 12 | All todo tasks | `12-todo-all.png` | Xem toàn bộ task, không chỉ task đang active |
 
 Ngoài app còn có **system notification**: notification foreground service, notification trạng thái (finished/error/approval), và notification live ongoing cho phiên đang chạy.
 
@@ -45,7 +48,10 @@ Ngoài app còn có **system notification**: notification foreground service, no
   - `AssistantBubble` — surfaceContainerHigh, thinking expand/collapse, streaming indicator.
   - `ToolCard` — surfaceContainer, args, status, expandable output, `animateContentSize`.
   - `NoticeRow`, `SummaryRow`.
-- `TodoStrip`: tiến độ `completed/total`, progress bar, task hiện tại.
+- `SubagentBar` + `SubagentsSheet`: số subagent đang chạy/tổng, danh sách tên + trạng thái, mở transcript.
+- `AgentTranscriptDialog`: fetch JSONL qua `fetch-transcript`, render bằng `TranscriptRow`, có Refresh.
+- `TodoStrip`: tiến độ `completed/total`, progress bar, task hiện tại; bấm để mở `TodoSheet`.
+- `TodoSheet`: toàn bộ task theo phase, status Pending/In progress/Completed/Abandoned/Blocked, blocker note.
 - `AskPanel`: select options hoặc editor; trả lời host `ui-request`.
 - `SessionCommandHint`: hiện khi draft bắt đầu bằng `/`.
 - `Composer`: `OutlinedTextField` (trailing mic), Stop, Send; `LinearProgressIndicator` khi đang nghe.
@@ -153,5 +159,6 @@ Ngoài app còn có **system notification**: notification foreground service, no
 ## 5. Ghi chú ảnh chụp
 
 - `06-qr-scanner.png`: camera preview màu đen vì lens thiết bị test bị che; overlay, toolbar, hint và fallback link là giao diện thật.
+- `10-subagents.png` / `11-subagent-transcript.png` / `12-todo-all.png`: dùng phòng demo tổng hợp có 2 subagent và 4 todo task; không chứa dữ liệu phiên thật.
 - `01-sessions-list.png`: có 3 phòng demo tổng hợp và 1 card phiên thật đang đồng bộ; không có nội dung hội thoại thật trong ảnh.
 - `00-sessions-empty.png`: empty state của cùng build giao diện, chụp trước khi thêm dữ liệu demo.

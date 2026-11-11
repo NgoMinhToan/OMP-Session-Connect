@@ -1,5 +1,6 @@
 package com.ompsessionconnect.domain.repository
 
+import com.ompsessionconnect.domain.model.AgentTranscriptPage
 import com.ompsessionconnect.domain.model.SessionAlert
 import com.ompsessionconnect.domain.model.SessionOverview
 import com.ompsessionconnect.domain.model.SessionSummary
@@ -39,4 +40,10 @@ interface SessionRepository {
   suspend fun abort(sessionId: String)
 
   suspend fun respondToUi(sessionId: String, requestId: Int, value: String?)
+
+  suspend fun fetchAgentTranscript(
+    sessionId: String,
+    agentId: String,
+    fromOffset: Long,
+  ): Result<AgentTranscriptPage>
 }

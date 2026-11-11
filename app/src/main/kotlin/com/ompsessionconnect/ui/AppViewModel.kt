@@ -4,7 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ompsessionconnect.domain.model.SessionOverview
 import com.ompsessionconnect.domain.model.SessionSummary
+import com.ompsessionconnect.domain.model.AgentTranscriptPage
 import com.ompsessionconnect.domain.usecase.AbortSessionUseCase
+import com.ompsessionconnect.domain.usecase.FetchAgentTranscriptUseCase
 import com.ompsessionconnect.domain.usecase.AddSessionUseCase
 import com.ompsessionconnect.domain.usecase.CloseEndedSessionsUseCase
 import com.ompsessionconnect.domain.usecase.CloseSessionUseCase
@@ -40,6 +42,7 @@ class AppViewModel @Inject constructor(
   private val abortSession: AbortSessionUseCase,
   private val respondToUiUseCase: RespondToUiUseCase,
   private val reconnectSession: ReconnectSessionUseCase,
+  private val fetchAgentTranscript: FetchAgentTranscriptUseCase,
 ) : ViewModel() {
 
   /** null until the first store emission so the UI can show a loader. */
@@ -94,4 +97,10 @@ class AppViewModel @Inject constructor(
   fun reconnect(sessionId: String) {
     viewModelScope.launch { reconnectSession(sessionId) }
   }
+
+  suspend fun fetchTranscript(
+    sessionId: String,
+    agentId: String,
+    fromOffset: Long,
+  ): Result<AgentTranscriptPage> = fetchAgentTranscript(sessionId, agentId, fromOffset)
 }

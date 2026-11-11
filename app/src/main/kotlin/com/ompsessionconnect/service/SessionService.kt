@@ -10,6 +10,7 @@ import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import com.ompsessionconnect.AppVisibility
 import com.ompsessionconnect.domain.model.SessionAlert
+import com.ompsessionconnect.domain.model.latestMessageText
 import com.ompsessionconnect.domain.model.SessionOverview
 import com.ompsessionconnect.domain.model.SessionStatus
 import com.ompsessionconnect.domain.model.AppSettings
@@ -52,7 +53,15 @@ class SessionService : Service() {
       }
     }
     scope.launch {
-      settingsRepository.settings.collect { settings = it }
+      settingsRepository.settings.collect {
+        settings = it
+        if (!visibility.visible.value) postLiveForRunning()
+      }
+    }
+    scope.launch {
+      visibility.visible.collect { visible ->
+        if (!visible) postLiveForRunning()
+      }
     }
     scope.launch {
       repository.alerts.collect(::onAlert)
@@ -101,6 +110,32 @@ class SessionService : Service() {
         else notifier.notify(alert)
       }
     }
+  }
+
+  private fun postLiveForRunning() {
+    if (visibility.visible.value || !settings.notificationsEnabled) return
+    if (!settings.notifyLiveMessages && !settings.notifyLiveProgress) return
+    lastSessions.forEach { overview ->
+      val snapshot = overview.snapshot ?: return@forEach
+      if (!snapshot.working) return@forEach
+      notifier.notifyLive(
+        alert = SessionAlert.Live(
+          sessionId = overview.id,
+          title = overview.title,
+          message = snapshot.latestMessageText()?.let(::compactLive),
+          completed = snapshot.todos?.completed ?: 0,
+          total = snapshot.todos?.total ?: 0,
+          current = snapshot.todos?.next?.content,
+        ),
+        showMessage = settings.notifyLiveMessages,
+        showProgress = settings.notifyLiveProgress,
+      )
+    }
+  }
+
+  private fun compactLive(text: String): String {
+    val singleLine = text.replace('\n', ' ').replace(Regex("\\s+"), " ").trim()
+    return if (singleLine.length <= 220) singleLine else singleLine.take(219) + "…"
   }
 
   private fun onSessions(sessions: List<SessionOverview>) {

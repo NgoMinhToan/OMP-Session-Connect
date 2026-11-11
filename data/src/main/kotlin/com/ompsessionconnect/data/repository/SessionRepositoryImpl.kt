@@ -5,6 +5,7 @@ import com.ompsessionconnect.data.link.CollabLinkParser
 import com.ompsessionconnect.data.runtime.SessionRuntimeManager
 import com.ompsessionconnect.data.store.SessionStore
 import com.ompsessionconnect.data.store.StoredSession
+import com.ompsessionconnect.domain.model.AgentTranscriptPage
 import com.ompsessionconnect.domain.model.SessionAlert
 import com.ompsessionconnect.domain.model.SessionOverview
 import com.ompsessionconnect.domain.model.SessionSummary
@@ -97,6 +98,12 @@ class SessionRepositoryImpl @Inject constructor(
   override suspend fun respondToUi(sessionId: String, requestId: Int, value: String?) {
     manager.respondToUi(sessionId, requestId, value)
   }
+
+  override suspend fun fetchAgentTranscript(
+    sessionId: String,
+    agentId: String,
+    fromOffset: Long,
+  ): Result<AgentTranscriptPage> = manager.fetchAgentTranscript(sessionId, agentId, fromOffset)
 }
 
 private fun StoredSession.toSummary() = SessionSummary(

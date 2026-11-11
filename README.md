@@ -12,7 +12,8 @@ An Android client for [oh-my-pi (omp)](https://omp.sh) collab sessions. Scan the
 - **Run control** — Prompt, stop a turn, and answer host `ask` select/editor requests.
 - **Voice dictation** — Android `SpeechRecognizer` with partial results, a live level meter, and a permission flow.
 - **Session commands** — A draft starting with `/` is sent to the host Main agent through the collab `agent-cmd` channel, so the session's extension/custom/file commands and prompt templates run on the host. Built-in TUI commands dispatched before the session prompt remain host-only.
-- **Todo progress** — The latest `todo` tool result is parsed into a compact strip and drives live notification updates.
+- **Subagent viewer** — Lists host subagents with status and fetches their JSONL transcript on demand (with refresh).
+- **Todo progress** — The latest `todo` tool result is parsed into a compact strip; tap it to see every task, phase, status, and blocker, not only the active item. It also drives live notification updates.
 - **Theme** — System / light / dark, persisted locally.
 - **Status at a glance** — Connecting, live, working, waiting for input, read-only, reconnecting, ended, error.
 - **Notifications** — Approval requests, finished turns, agent errors/lost connections, plus a silent live notification per running session showing the newest message and (optionally) todo progress. Each category is toggled in Settings.

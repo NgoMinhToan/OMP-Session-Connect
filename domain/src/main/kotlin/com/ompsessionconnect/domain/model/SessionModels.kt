@@ -147,6 +147,22 @@ data class TodoProgress(
   }
 }
 
+enum class SubagentStatus { RUNNING, IDLE, PARKED, ABORTED }
+
+data class SubagentInfo(
+  val id: String,
+  val displayName: String,
+  val status: SubagentStatus,
+  val parentId: String?,
+  val hasSessionFile: Boolean,
+  val lastActivity: Long,
+)
+
+data class AgentTranscriptPage(
+  val items: List<TranscriptItem>,
+  val nextOffset: Long,
+)
+
 data class SessionSnapshot(
   val sessionId: String,
   val title: String,
@@ -162,6 +178,7 @@ data class SessionSnapshot(
   val queuedMessages: Int,
   val participantCount: Int,
   val activeAgents: Int,
+  val subagents: List<SubagentInfo>,
   val loadingReceived: Int,
   val loadingTotal: Int,
   val transcript: List<TranscriptItem>,
@@ -190,6 +207,18 @@ data class SessionSnapshot(
         else -> SessionStatus.LIVE
       }
     }
+}
+
+/** Newest assistant or user text, preferring the live streaming ghost. */
+fun SessionSnapshot.latestMessageText(): String? {
+  streamingText?.takeIf { it.isNotBlank() }?.let { return it }
+  transcript.asReversed().firstNotNullOfOrNull { item ->
+    (item as? AssistantMessageItem)?.text?.takeIf { it.isNotBlank() }
+  }?.let { return it }
+  transcript.asReversed().firstNotNullOfOrNull { item ->
+    (item as? UserMessageItem)?.text?.takeIf { it.isNotBlank() }
+  }?.let { return it }
+  return null
 }
 
 sealed interface SessionAlert {
