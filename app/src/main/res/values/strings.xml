@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_name">OMP Session Connect</string>
+
+  <string name="sessions_title">Sessions</string>
+  <string name="sessions_subtitle">Live collab rooms from your machines</string>
+  <string name="sessions_all_clear">No session needs you.</string>
+  <string name="sessions_add">Add session</string>
+  <string name="sessions_close_ended">Close ended sessions</string>
+  <string name="sessions_last_active">Last active %1$s</string>
+  <string name="sessions_never_connected">Not connected yet</string>
+  <string name="sessions_stored">%1$d stored</string>
+  <string name="sessions_just_now">Just now</string>
+
+  <string name="action_scan_qr">Scan QR</string>
+  <string name="action_paste_link">Paste link</string>
+  <string name="action_close">Close</string>
+  <string name="action_cancel">Cancel</string>
+  <string name="action_close_session">Close session</string>
+  <string name="action_reconnect">Reconnect</string>
+  <string name="action_send">Send</string>
+  <string name="action_stop">Stop</string>
+  <string name="action_back">Back</string>
+  <string name="action_more">More actions</string>
+  <string name="action_retry">Retry</string>
+  <string name="action_open">Open</string>
+  <string name="action_allow_camera">Allow camera</string>
+  <string name="action_torch_on">Torch</string>
+  <string name="action_torch_off">Torch off</string>
+
+  <string name="empty_title">Connect your first OMP session</string>
+  <string name="empty_body">Run /collab in omp, then scan the QR code or paste the link here.</string>
+
+  <string name="add_link_title">Add a collab link</string>
+  <string name="add_link_label">Link or room id</string>
+  <string name="add_link_hint">https://my.omp.sh/#…</string>
+  <string name="add_link_button">Add session</string>
+  <string name="add_link_error">That does not look like an OMP collab link.</string>
+  <string name="add_link_duplicate">This session is already added.</string>
+
+  <string name="scan_title">Scan collab QR</string>
+  <string name="scan_hint">Point the camera at the QR code shown by /collab.</string>
+  <string name="scan_invalid">That QR is not an OMP collab link.</string>
+  <string name="scan_permission_title">Camera access needed</string>
+  <string name="scan_permission_body">The camera is only used to read OMP collab QR codes. You can also paste a link instead.</string>
+
+  <string name="status_connecting">Connecting</string>
+  <string name="status_live">Live</string>
+  <string name="status_working">Working</string>
+  <string name="status_waiting">Needs input</string>
+  <string name="status_watching">Watching</string>
+  <string name="status_reconnecting">Reconnecting</string>
+  <string name="status_ended">Ended</string>
+  <string name="status_error">Error</string>
+  <string name="status_read_only">Read-only</string>
+  <string name="status_syncing">Syncing %1$d/%2$d</string>
+
+  <string name="detail_title">Session</string>
+  <string name="detail_no_session">Session not found</string>
+  <string name="detail_empty">No messages yet. Say hello to OMP.</string>
+  <string name="detail_model_unknown">Model not reported</string>
+  <string name="detail_ended_banner">Session ended: %1$s</string>
+  <string name="detail_error_banner">Connection failed: %1$s</string>
+  <string name="detail_reconnecting_banner">Reconnecting to the host…</string>
+  <string name="detail_loading">Loading transcript…</string>
+  <string name="detail_composer_hint">Message OMP…</string>
+  <string name="detail_read_only_hint">Read-only session</string>
+  <string name="detail_close_confirm_title">Close this session?</string>
+  <string name="detail_close_confirm_body">The phone stops connecting to this room. The OMP host keeps running.</string>
+  <string name="detail_close_ended_confirm">Close all ended sessions?</string>
+  <string name="detail_close_ended_body">Removes %1$d ended session(s) from this phone.</string>
+
+  <string name="prompt_select_title">OMP needs your answer</string>
+  <string name="prompt_editor_hint">Type your answer</string>
+  <string name="prompt_send">Send answer</string>
+  <string name="prompt_cancel">Cancel request</string>
+  <string name="prompt_help">Choose one option</string>
+
+  <string name="notice_title">Notice</string>
+  <string name="tool_running">Running</string>
+  <string name="tool_done">Done</string>
+  <string name="tool_error">Failed</string>
+  <string name="tool_output">Output</string>
+  <string name="tool_arguments">Arguments</string>
+
+  <string name="transcript_you">You</string>
+  <string name="transcript_assistant">OMP</string>
+  <string name="transcript_guest">via %1$s</string>
+  <string name="transcript_image">%1$d image</string>
+  <string name="transcript_thinking">Thinking</string>
+
+  <string name="notif_channel_status">Session status</string>
+  <string name="notif_channel_status_desc">Turns finishing, approvals, and connection changes</string>
+  <string name="notif_channel_service">Active connections</string>
+  <string name="notif_channel_service_desc">Keeps live OMP sessions connected</string>
+  <string name="notif_channel_live">Live session activity</string>
+  <string name="notif_channel_live_desc">Silent progress and newest-message updates</string>
+  <string name="notif_service_title">OMP sessions connected</string>
+  <string name="notif_service_text">%1$d live · %2$d need you</string>
+  <string name="notif_waiting_title">OMP needs input</string>
+  <string name="notif_waiting_text">%1$s: %2$s</string>
+  <string name="notif_finished_title">OMP finished</string>
+  <string name="notif_finished_text">%1$s finished a turn</string>
+  <string name="notif_lost_title">OMP connection lost</string>
+  <string name="notif_lost_text">%1$s: %2$s</string>
+  <string name="notif_ended_title">OMP session ended</string>
+  <string name="notif_ended_text">%1$s: %2$s</string>
+  <string name="notif_group">OMP sessions</string>
+
+  <string name="error_generic">Something went wrong.</string>
+  <string name="error_not_live">Session is not connected.</string>
+  <string name="error_read_only">This link is read-only.</string>
+  <string name="session_closed">Session closed</string>
+
+  <plurals name="sessions_live">
+    <item quantity="one">%1$d live</item>
+    <item quantity="other">%1$d live</item>
+  </plurals>
+  <plurals name="sessions_need_you">
+    <item quantity="one">%1$d needs you</item>
+    <item quantity="other">%1$d need you</item>
+  </plurals>
+  <plurals name="participants">
+    <item quantity="one">%1$d participant</item>
+    <item quantity="other">%1$d participants</item>
+  </plurals>
+  <plurals name="subagents">
+    <item quantity="one">%1$d subagent</item>
+    <item quantity="other">%1$d subagents</item>
+  </plurals>
+  <plurals name="queued_messages">
+    <item quantity="one">%1$d queued</item>
+    <item quantity="other">%1$d queued</item>
+  </plurals>
+  <plurals name="close_ended_count">
+    <item quantity="one">Closed %1$d ended session</item>
+    <item quantity="other">Closed %1$d ended sessions</item>
+  </plurals>
+  <plurals name="transcript_images">
+    <item quantity="one">%1$d image</item>
+    <item quantity="other">%1$d images</item>
+  </plurals>
+
+  <string name="settings_title">Settings</string>
+  <string name="settings_appearance">Appearance</string>
+  <string name="settings_theme_system">System default</string>
+  <string name="settings_theme_system_desc">Follow the device theme</string>
+  <string name="settings_theme_light">Light</string>
+  <string name="settings_theme_light_desc">Always use the light theme</string>
+  <string name="settings_theme_dark">Dark</string>
+  <string name="settings_theme_dark_desc">Always use the dark theme</string>
+  <string name="settings_notifications">Notifications</string>
+  <string name="settings_notifications_master">Enable notifications</string>
+  <string name="settings_notifications_master_desc">Master switch for status alerts</string>
+  <string name="settings_notify_finished">Turn finished</string>
+  <string name="settings_notify_finished_desc">Alert when an agent finishes a turn</string>
+  <string name="settings_notify_errors">Errors</string>
+  <string name="settings_notify_errors_desc">Alert on agent errors and lost connections</string>
+  <string name="settings_notify_live_messages">Live session messages</string>
+  <string name="settings_notify_live_messages_desc">Silent ongoing notification with the newest message from each running session</string>
+  <string name="settings_notify_progress">Live todo progress</string>
+  <string name="settings_notify_progress_desc">Keep an ongoing notification updated with todo progress</string>
+  <string name="settings_permission_title">Notification permission</string>
+  <string name="settings_permission_granted">Granted</string>
+  <string name="settings_permission_denied">Not granted</string>
+  <string name="settings_permission_body">Android requires permission before status alerts can appear.</string>
+  <string name="settings_permission_allow">Allow notifications</string>
+  <string name="settings_permission_open">Open system settings</string>
+  <string name="notif_error_title">OMP error</string>
+  <string name="notif_error_text">%1$s: %2$s</string>
+  <string name="notif_progress_working">Agent is working</string>
+  <string name="notif_progress_complete">All tasks closed</string>
+  <string name="notif_progress_text">%1$d/%2$d · %3$s</string>
+
+  <string name="voice_start">Voice input</string>
+  <string name="voice_stop">Stop listening</string>
+  <string name="voice_listening">Listening…</string>
+  <string name="voice_unavailable">Speech recognition is not available on this device.</string>
+  <string name="voice_permission_denied">Microphone permission is required.</string>
+  <string name="voice_error_no_match">I could not understand that. Try again.</string>
+  <string name="voice_error_network">Speech recognition needs a network connection.</string>
+  <string name="voice_error_permission">Microphone permission is required.</string>
+  <string name="voice_error_busy">Speech recognition is busy. Try again.</string>
+  <string name="voice_error_generic">Voice input failed. Try again.</string>
+
+  <string name="session_command_hint">Session command · sent to the OMP host</string>
+</resources>

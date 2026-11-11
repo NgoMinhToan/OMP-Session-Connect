@@ -1,0 +1,46 @@
+package com.ompsessionconnect
+
+import android.app.Activity
+import android.app.Application
+import android.os.Bundle
+import com.ompsessionconnect.domain.repository.SessionRepository
+import com.ompsessionconnect.notify.SessionNotifier
+import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+@HiltAndroidApp
+class OmpApplication : Application() {
+  @Inject lateinit var repository: SessionRepository
+  @Inject lateinit var notifier: SessionNotifier
+  @Inject lateinit var visibility: AppVisibility
+
+  private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+  private var startedActivities = 0
+
+  override fun onCreate() {
+    super.onCreate()
+    notifier.createChannels()
+    registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
+      override fun onActivityStarted(activity: Activity) {
+        startedActivities++
+        visibility.setVisible(true)
+      }
+
+      override fun onActivityStopped(activity: Activity) {
+        startedActivities = (startedActivities - 1).coerceAtLeast(0)
+        visibility.setVisible(startedActivities > 0)
+      }
+
+      override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) = Unit
+      override fun onActivityResumed(activity: Activity) = Unit
+      override fun onActivityPaused(activity: Activity) = Unit
+      override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit
+      override fun onActivityDestroyed(activity: Activity) = Unit
+    })
+    scope.launch { repository.start() }
+  }
+}
