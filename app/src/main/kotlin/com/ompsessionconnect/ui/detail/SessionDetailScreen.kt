@@ -89,10 +89,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.zIndex
-import androidx.compose.ui.draw.blur
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.runtime.derivedStateOf
 import android.os.Build
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
@@ -137,6 +135,9 @@ import com.ompsessionconnect.ui.theme.CodeTextStyle
 import com.ompsessionconnect.ui.theme.LiveGlassShapes
 import com.ompsessionconnect.ui.theme.LocalLiveGlass
 import com.ompsessionconnect.ui.theme.LocalSessionStatusColors
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -234,6 +235,7 @@ private fun SessionDetailContent(
   var agentError by remember { mutableStateOf<String?>(null) }
   var todoSheetOpen by remember { mutableStateOf(false) }
   val listState = rememberLazyListState()
+  val hazeState = rememberHazeState()
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
   val voicePermissionDeniedText = stringResource(R.string.voice_permission_denied)
@@ -318,56 +320,53 @@ private fun SessionDetailContent(
   val streamText = snapshot?.streamingText
   val streamThinking = snapshot?.streamingThinking
 
-  val density = LocalDensity.current
-  val topBandPx = with(density) { 220.dp.toPx() }
-  val bottomBandPx = with(density) { 140.dp.toPx() }
-  val blurredKeys by remember(listState) {
-    derivedStateOf {
-      val height = listState.layoutInfo.viewportSize.height
-      listState.layoutInfo.visibleItemsInfo
-        .filter { info ->
-          info.offset < topBandPx ||
-            info.offset + info.size > height - bottomBandPx
-        }
-        .map { it.key }
-        .toSet()
-    }
-  }
   val blurAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
   val legacyInsets = !blurAvailable
-  fun Modifier.edgeBlur(key: Any): Modifier =
-    if (blurAvailable && key in blurredKeys) blur(8.dp) else this
+  val chromeBlur = if (blurAvailable) {
+    Modifier.hazeEffect(hazeState) {
+      blurRadius = 18.dp
+      backgroundColor = Color.Transparent
+      blurredEdgeTreatment = BlurredEdgeTreatment.Rectangle
+      noiseFactor = 0f
+    }
+  } else {
+    Modifier
+  }
 
   Box(modifier = Modifier.fillMaxSize()) {
-    LazyColumn(
+    // Keep the transcript in its own Haze source layer; the fixed chrome effects below
+    // sample this layer and blur only the pixels inside each chrome box.
+    Box(
       modifier = Modifier
         .fillMaxSize()
-        .edgeFade(top = 18.dp, bottom = 26.dp),
-      state = listState,
-      reverseLayout = true,
-      contentPadding = androidx.compose.foundation.layout.PaddingValues(
-        start = 16.dp,
-        end = 16.dp,
-        top = if (legacyInsets) 200.dp else 16.dp,
-        bottom = if (legacyInsets) 140.dp else 16.dp,
-      ),
-      verticalArrangement = Arrangement.spacedBy(10.dp),
+        .then(if (blurAvailable) Modifier.hazeSource(hazeState) else Modifier),
     ) {
-      item(key = "stream", contentType = "stream") {
-        Box(modifier = Modifier.edgeBlur("stream")) {
+      LazyColumn(
+        modifier = Modifier
+          .fillMaxSize()
+          .edgeFade(top = 18.dp, bottom = 26.dp),
+        state = listState,
+        reverseLayout = true,
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(
+          start = 16.dp,
+          end = 16.dp,
+          top = if (legacyInsets) 200.dp else 16.dp,
+          bottom = if (legacyInsets) 140.dp else 16.dp,
+        ),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+      ) {
+        item(key = "stream", contentType = "stream") {
           if (streamText != null || streamThinking != null) {
             AssistantBubble(
-            text = streamText.orEmpty(),
-            thinking = streamThinking.orEmpty(),
-            streaming = snapshot.working,
+              text = streamText.orEmpty(),
+              thinking = streamThinking.orEmpty(),
+              streaming = snapshot.working,
               model = snapshot.modelName,
             )
           }
         }
-      }
-      if (transcript.isEmpty() && streamText == null && streamThinking == null) {
-        item(key = "empty", contentType = "empty") {
-          Box(modifier = Modifier.edgeBlur("empty")) {
+        if (transcript.isEmpty() && streamText == null && streamThinking == null) {
+          item(key = "empty", contentType = "empty") {
             Box(
               modifier = Modifier
                 .fillMaxWidth()
@@ -382,13 +381,11 @@ private fun SessionDetailContent(
             }
           }
         }
-      }
-      items(
-        items = transcript,
-        key = { it.id },
-        contentType = { item -> item.itemType.name },
-      ) { item ->
-        Box(modifier = Modifier.edgeBlur(item.id)) {
+        items(
+          items = transcript,
+          key = { it.id },
+          contentType = { item -> item.itemType.name },
+        ) { item ->
           TranscriptRow(item)
         }
       }
@@ -399,7 +396,14 @@ private fun SessionDetailContent(
         .align(Alignment.TopCenter)
         .fillMaxWidth()
         .zIndex(3f)
-        .background(tokens.control.copy(alpha = 0.58f)),
+        .then(chromeBlur)
+        .then(
+          if (blurAvailable) {
+            Modifier
+          } else {
+            Modifier.background(tokens.control.copy(alpha = 0.58f))
+          },
+        ),
     ) {
       Column(
         modifier = Modifier
@@ -501,7 +505,8 @@ private fun SessionDetailContent(
       modifier = Modifier
         .align(Alignment.BottomCenter)
         .fillMaxWidth()
-        .zIndex(3f),
+        .zIndex(3f)
+        .then(chromeBlur),
     ) {
       if (snapshot != null) {
         Column(
