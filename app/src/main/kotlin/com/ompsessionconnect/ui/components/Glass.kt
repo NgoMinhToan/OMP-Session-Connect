@@ -22,22 +22,14 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.rememberGraphicsLayer
-import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalDensity
-import android.os.Build
 import com.ompsessionconnect.ui.theme.LocalLiveGlass
 
 @Composable
@@ -113,81 +105,3 @@ fun Modifier.edgeFade(
       )
     }
   }
-
-/**
- * API 31+: blurs the top and bottom strips of the scrolling layer, then fades the
- * outer edge. Older APIs keep the alpha-only [edgeFade] behavior.
- */
-@Composable
-fun Modifier.edgeBlurFade(
-  top: Dp = 42.dp,
-  bottom: Dp = 42.dp,
-  fadeTop: Dp = 18.dp,
-  fadeBottom: Dp = 26.dp,
-  blurRadius: Dp = 8.dp,
-): Modifier {
-  if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-    return edgeFade(top = fadeTop, bottom = fadeBottom)
-  }
-  val layer = rememberGraphicsLayer()
-  val density = LocalDensity.current
-  val topPx = with(density) { top.toPx() }
-  val bottomPx = with(density) { bottom.toPx() }
-  val fadeTopPx = with(density) { fadeTop.toPx() }
-  val fadeBottomPx = with(density) { fadeBottom.toPx() }
-  val blurPx = with(density) { blurRadius.toPx() }
-  return this
-    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-    .drawWithContent {
-      val width = size.width.toInt()
-      val height = size.height.toInt()
-      layer.record(density, layoutDirection, IntSize(width, height)) {
-        this@drawWithContent.drawContent()
-      }
-      clipRect(
-        left = 0f,
-        top = topPx,
-        right = size.width,
-        bottom = (size.height - bottomPx).coerceAtLeast(topPx),
-      ) {
-        this@drawWithContent.drawContent()
-      }
-      layer.renderEffect = BlurEffect(blurPx, blurPx)
-      clipRect(left = 0f, top = 0f, right = size.width, bottom = topPx) {
-        drawLayer(layer)
-      }
-      clipRect(
-        left = 0f,
-        top = (size.height - bottomPx).coerceAtLeast(0f),
-        right = size.width,
-        bottom = size.height,
-      ) {
-        drawLayer(layer)
-      }
-      if (fadeTopPx > 0f) {
-        drawRect(
-          brush = Brush.verticalGradient(
-            colorStops = arrayOf(0f to Color.Black, 1f to Color.Transparent),
-            startY = 0f,
-            endY = fadeTopPx.coerceAtMost(size.height / 2f),
-          ),
-          topLeft = Offset.Zero,
-          size = Size(size.width, fadeTopPx.coerceAtMost(size.height / 2f)),
-          blendMode = BlendMode.DstOut,
-        )
-      }
-      if (fadeBottomPx > 0f) {
-        val h = fadeBottomPx.coerceAtMost(size.height / 2f)
-        drawRect(
-          brush = Brush.verticalGradient(
-            colorStops = arrayOf(0f to Color.Transparent, 1f to Color.Black),
-            startY = size.height - h,
-            endY = size.height,
-          ),
-          topLeft = Offset(0f, size.height - h),
-          size = Size(size.width, h),
-          blendMode = BlendMode.DstOut,
-        )
-      }
-    }
-}

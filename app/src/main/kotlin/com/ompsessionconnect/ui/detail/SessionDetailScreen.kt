@@ -88,6 +88,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.runtime.derivedStateOf
+import android.os.Build
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
@@ -122,7 +127,7 @@ import com.ompsessionconnect.domain.model.UserMessageItem
 import com.ompsessionconnect.ui.AppEvent
 import com.ompsessionconnect.ui.AppViewModel
 import com.ompsessionconnect.ui.components.ConfirmDialog
-import com.ompsessionconnect.ui.components.edgeBlurFade
+import com.ompsessionconnect.ui.components.edgeFade
 import com.ompsessionconnect.ui.components.GlassIconButton
 import com.ompsessionconnect.ui.components.StatusPill
 import com.ompsessionconnect.ui.components.rememberVoiceInput
@@ -313,17 +318,99 @@ private fun SessionDetailContent(
   val streamText = snapshot?.streamingText
   val streamThinking = snapshot?.streamingThinking
 
-  Scaffold(
-    containerColor = Color.Transparent,
-    snackbarHost = { SnackbarHost(snackbarHostState) },
-    topBar = {
+  val density = LocalDensity.current
+  val topBandPx = with(density) { 220.dp.toPx() }
+  val bottomBandPx = with(density) { 140.dp.toPx() }
+  val blurredKeys by remember(listState) {
+    derivedStateOf {
+      val height = listState.layoutInfo.viewportSize.height
+      listState.layoutInfo.visibleItemsInfo
+        .filter { info ->
+          info.offset < topBandPx ||
+            info.offset + info.size > height - bottomBandPx
+        }
+        .map { it.key }
+        .toSet()
+    }
+  }
+  val blurAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+  val legacyInsets = !blurAvailable
+  fun Modifier.edgeBlur(key: Any): Modifier =
+    if (blurAvailable && key in blurredKeys) blur(8.dp) else this
+
+  Box(modifier = Modifier.fillMaxSize()) {
+    LazyColumn(
+      modifier = Modifier
+        .fillMaxSize()
+        .edgeFade(top = 18.dp, bottom = 26.dp),
+      state = listState,
+      reverseLayout = true,
+      contentPadding = androidx.compose.foundation.layout.PaddingValues(
+        start = 16.dp,
+        end = 16.dp,
+        top = if (legacyInsets) 200.dp else 16.dp,
+        bottom = if (legacyInsets) 140.dp else 16.dp,
+      ),
+      verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+      item(key = "stream", contentType = "stream") {
+        Box(modifier = Modifier.edgeBlur("stream")) {
+          if (streamText != null || streamThinking != null) {
+            AssistantBubble(
+            text = streamText.orEmpty(),
+            thinking = streamThinking.orEmpty(),
+            streaming = snapshot.working,
+              model = snapshot.modelName,
+            )
+          }
+        }
+      }
+      if (transcript.isEmpty() && streamText == null && streamThinking == null) {
+        item(key = "empty", contentType = "empty") {
+          Box(modifier = Modifier.edgeBlur("empty")) {
+            Box(
+              modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 48.dp),
+              contentAlignment = Alignment.Center,
+            ) {
+              Text(
+                text = stringResource(R.string.detail_empty),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+              )
+            }
+          }
+        }
+      }
+      items(
+        items = transcript,
+        key = { it.id },
+        contentType = { item -> item.itemType.name },
+      ) { item ->
+        Box(modifier = Modifier.edgeBlur(item.id)) {
+          TranscriptRow(item)
+        }
+      }
+    }
+
+    Box(
+      modifier = Modifier
+        .align(Alignment.TopCenter)
+        .fillMaxWidth()
+        .zIndex(3f)
+        .background(tokens.control.copy(alpha = 0.58f)),
+    ) {
       Column(
         modifier = Modifier
           .fillMaxWidth()
-          .statusBarsPadding()
-          .padding(horizontal = 12.dp, vertical = 8.dp),
+          .zIndex(2f)
+          .statusBarsPadding(),
       ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+          modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
           GlassIconButton(
             icon = Icons.AutoMirrored.Outlined.ArrowBack,
             contentDescription = stringResource(R.string.action_back),
@@ -381,13 +468,46 @@ private fun SessionDetailContent(
             }
           }
         }
+        snapshot?.let { state ->
+          StateBanners(state = state, onReconnect = { appViewModel.reconnect(overview.id) })
+          if (state.phase == SessionPhase.LIVE || state.phase == SessionPhase.CONNECTING) {
+            SessionMeta(state)
+            if (state.subagents.isNotEmpty()) {
+              SubagentBar(
+                agents = state.subagents,
+                onClick = { subagentsOpen = true },
+              )
+            }
+          }
+          state.notices.lastOrNull { it.level != NoticeLevel.INFO }?.let { notice ->
+            if (System.currentTimeMillis() - notice.timestamp < 120_000) {
+              Text(
+                text = notice.text,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                style = MaterialTheme.typography.labelSmall,
+                color = if (notice.level == NoticeLevel.ERROR) {
+                  MaterialTheme.colorScheme.error
+                } else {
+                  MaterialTheme.colorScheme.tertiary
+                },
+              )
+            }
+          }
+        }
       }
-    },
-    bottomBar = {
+    }
+
+    Box(
+      modifier = Modifier
+        .align(Alignment.BottomCenter)
+        .fillMaxWidth()
+        .zIndex(3f),
+    ) {
       if (snapshot != null) {
         Column(
           modifier = Modifier
             .fillMaxWidth()
+            .zIndex(2f)
             .imePadding()
             .navigationBarsPadding()
             .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -466,85 +586,15 @@ private fun SessionDetailContent(
           )
         }
       }
-    },
-  ) { padding ->
-    Column(
-      modifier = Modifier
-        .fillMaxSize()
-        .padding(padding),
-    ) {
-      snapshot?.let { state ->
-        StateBanners(state = state, onReconnect = { appViewModel.reconnect(overview.id) })
-        if (state.phase == SessionPhase.LIVE || state.phase == SessionPhase.CONNECTING) {
-          SessionMeta(state)
-          if (state.subagents.isNotEmpty()) {
-            SubagentBar(
-              agents = state.subagents,
-              onClick = { subagentsOpen = true },
-            )
-          }
-        }
-        state.notices.lastOrNull { it.level != NoticeLevel.INFO }?.let { notice ->
-          if (System.currentTimeMillis() - notice.timestamp < 120_000) {
-            Text(
-              text = notice.text,
-              modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-              style = MaterialTheme.typography.labelSmall,
-              color = if (notice.level == NoticeLevel.ERROR) {
-                MaterialTheme.colorScheme.error
-              } else {
-                MaterialTheme.colorScheme.tertiary
-              },
-            )
-          }
-        }
-      }
-
-      LazyColumn(
-        modifier = Modifier
-          .fillMaxWidth()
-          .weight(1f)
-          .edgeBlurFade(),
-        state = listState,
-        reverseLayout = true,
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-      ) {
-        item(key = "stream", contentType = "stream") {
-          if (streamText != null || streamThinking != null) {
-            AssistantBubble(
-              text = streamText.orEmpty(),
-              thinking = streamThinking.orEmpty(),
-              streaming = snapshot.working,
-              model = snapshot.modelName,
-            )
-          }
-        }
-        if (transcript.isEmpty() && streamText == null && streamThinking == null) {
-          item(key = "empty", contentType = "empty") {
-            Box(
-              modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 48.dp),
-              contentAlignment = Alignment.Center,
-            ) {
-              Text(
-                text = stringResource(R.string.detail_empty),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-              )
-            }
-          }
-        }
-        items(
-          items = transcript,
-          key = { it.id },
-          contentType = { item -> item.itemType.name },
-        ) { item ->
-          TranscriptRow(item)
-        }
-      }
     }
+
+    SnackbarHost(
+      hostState = snackbarHostState,
+      modifier = Modifier
+        .align(Alignment.BottomCenter)
+        .zIndex(4f)
+        .padding(bottom = 96.dp),
+    )
   }
 
   val agents = snapshot?.subagents.orEmpty()
