@@ -8,7 +8,7 @@ plugins {
 
 android {
   namespace = "com.ompsessionconnect"
-  compileSdk = 36
+  compileSdk = 37
 
   defaultConfig {
     applicationId = "com.ompsessionconnect"
@@ -70,6 +70,7 @@ dependencies {
   implementation(libs.androidx.compose.material3)
   implementation(libs.androidx.compose.material.icons.core)
   implementation(libs.haze)
+  implementation(libs.haze.glass)
   debugImplementation(libs.androidx.compose.ui.tooling)
 
   implementation(libs.androidx.navigation3.ui)

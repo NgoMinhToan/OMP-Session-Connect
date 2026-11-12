@@ -1,14 +1,14 @@
 [versions]
-androidGradlePlugin = "9.0.1"
-kotlin = "2.3.20"
+androidGradlePlugin = "9.1.1"
+kotlin = "2.4.20"
 ksp = "2.3.13"
 hilt = "2.60.1"
 hiltNavigation = "1.3.0"
 androidxCore = "1.18.0"
 androidxLifecycle = "2.10.0"
 androidxActivity = "1.13.0"
-androidxComposeBom = "2026.03.01"
-haze = "1.7.2"
+androidxComposeBom = "2026.09.00"
+haze = "2.0.1"
 androidxTest = "1.7.0"
 androidxTestExt = "1.3.0"
 androidxTestRunner = "1.7.0"
@@ -46,6 +46,7 @@ androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 androidx-compose-material-icons-core = { group = "androidx.compose.material", name = "material-icons-core" }
 haze = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
+haze-glass = { module = "dev.chrisbanes.haze:haze-glass", version.ref = "haze" }
 
 androidx-navigation3-runtime = { module = "androidx.navigation3:navigation3-runtime", version.ref = "nav3Core" }
 androidx-navigation3-ui = { module = "androidx.navigation3:navigation3-ui", version.ref = "nav3Core" }

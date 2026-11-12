@@ -1,4 +1,7 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@file:OptIn(
+  androidx.compose.material3.ExperimentalMaterial3Api::class,
+  dev.chrisbanes.haze.ExperimentalHazeApi::class,
+)
 
 package com.ompsessionconnect.ui.detail
 
@@ -90,7 +93,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.zIndex
 import android.os.Build
-import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
@@ -135,10 +138,13 @@ import com.ompsessionconnect.ui.theme.CodeTextStyle
 import com.ompsessionconnect.ui.theme.LiveGlassShapes
 import com.ompsessionconnect.ui.theme.LocalLiveGlass
 import com.ompsessionconnect.ui.theme.LocalSessionStatusColors
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.HazeInput
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
+import dev.chrisbanes.haze.glass.GlassDefaults
+import dev.chrisbanes.haze.glass.GlassStyle
+import dev.chrisbanes.haze.glass.OpticalSizeValue
+import dev.chrisbanes.haze.glass.hazeGlass
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -215,6 +221,23 @@ fun SessionDetailScreen(
       )
     }
   }
+}
+
+private val ChromeGlassShape = RoundedCornerShape(28.dp)
+
+private fun chromeGlassStyle(field: Color, dark: Boolean): GlassStyle = GlassStyle {
+  backgroundColor(Color.Transparent)
+  tint(field.copy(alpha = if (dark) 0.72f else 0.62f))
+  shape(ChromeGlassShape)
+  optics(
+    GlassDefaults.optics.copy(
+      depth = OpticalSizeValue.Fixed(1f),
+      refractionStrength = 0.9f,
+      refractionDisplacement = 48.dp,
+      refractionFoldStrength = 0.65f,
+      refractionDetailIntensity = 0.76f,
+    ),
+  )
 }
 
 @Composable
@@ -323,19 +346,20 @@ private fun SessionDetailContent(
 
   val blurAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
   val legacyInsets = !blurAvailable
-  // Frosted-glass equivalent of HazeMaterials.thin(): a field-colored base plus a
-  // same-color veil, so each chrome box blends with its gradient region.
-  fun chromeBlur(field: Color): Modifier =
+  val topGlassStyle = remember(tokens.fieldA, tokens.dark) {
+    chromeGlassStyle(tokens.fieldA, tokens.dark)
+  }
+  val bottomGlassStyle = remember(tokens.fieldC, tokens.dark) {
+    chromeGlassStyle(tokens.fieldC, tokens.dark)
+  }
+  fun chromeGlass(style: GlassStyle): Modifier =
     if (blurAvailable) {
-      Modifier.hazeEffect(hazeState) {
-        blurRadius = 24.dp
-        backgroundColor = field
-        tints = listOf(
-          HazeTint(field.copy(alpha = if (tokens.dark) 0.45f else 0.35f)),
+      Modifier
+        .clip(ChromeGlassShape)
+        .hazeGlass(
+          input = HazeInput.Sources(hazeState),
+          style = style,
         )
-        blurredEdgeTreatment = BlurredEdgeTreatment.Rectangle
-        noiseFactor = 0f
-      }
     } else {
       Modifier
     }
@@ -403,7 +427,7 @@ private fun SessionDetailContent(
         .align(Alignment.TopCenter)
         .fillMaxWidth()
         .zIndex(3f)
-        .then(chromeBlur(tokens.fieldA))
+        .then(chromeGlass(topGlassStyle))
         .then(
           if (blurAvailable) {
             Modifier
@@ -513,7 +537,7 @@ private fun SessionDetailContent(
         .align(Alignment.BottomCenter)
         .fillMaxWidth()
         .zIndex(3f)
-        .then(chromeBlur(tokens.fieldC)),
+        .then(chromeGlass(bottomGlassStyle)),
     ) {
       if (snapshot != null) {
         Column(
