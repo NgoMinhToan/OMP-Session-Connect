@@ -11,6 +11,11 @@
   <string name="sessions_never_connected">Not connected yet</string>
   <string name="sessions_stored">%1$d stored</string>
   <string name="sessions_just_now">Just now</string>
+  <string name="sessions_context_percent">%1$d%%</string>
+  <string name="sessions_todo_meta">todo %1$d/%2$d</string>
+  <string name="sessions_waiting">waiting %1$s</string>
+  <string name="sessions_needs_you">Needs you</string>
+  <string name="sessions_review">Review</string>
 
   <string name="action_scan_qr">Scan QR</string>
   <string name="action_paste_link">Paste link</string>
@@ -149,6 +154,9 @@
   <string name="settings_theme_light_desc">Always use the light theme</string>
   <string name="settings_theme_dark">Dark</string>
   <string name="settings_theme_dark_desc">Always use the dark theme</string>
+  <string name="settings_dynamic_color">Dynamic color</string>
+  <string name="settings_dynamic_color_desc">Uses your wallpaper palette</string>
+  <string name="settings_dynamic_color_unsupported">Requires Android 12 or newer</string>
   <string name="settings_notifications">Notifications</string>
   <string name="settings_notifications_master">Enable notifications</string>
   <string name="settings_notifications_master_desc">Master switch for status alerts</string>
@@ -161,6 +169,7 @@
   <string name="settings_notify_progress">Live todo progress</string>
   <string name="settings_notify_progress_desc">Keep an ongoing notification updated with todo progress</string>
   <string name="settings_permission_title">Notification permission</string>
+  <string name="settings_permission_section">Permission</string>
   <string name="settings_permission_granted">Granted</string>
   <string name="settings_permission_denied">Not granted</string>
   <string name="settings_permission_body">Android requires permission before status alerts can appear.</string>
@@ -190,6 +199,7 @@
   <string name="subagent_transcript_empty">No transcript yet.</string>
   <string name="subagent_transcript_error">Could not load the subagent transcript.</string>
   <string name="subagent_transcript_refresh">Refresh</string>
+  <string name="subagent_no_log">No log yet</string>
   <string name="subagent_status_running">Running</string>
   <string name="subagent_status_idle">Idle</string>
   <string name="subagent_status_parked">Parked</string>
@@ -202,4 +212,24 @@
   <string name="todo_status_completed">Completed</string>
   <string name="todo_status_abandoned">Abandoned</string>
   <string name="todo_status_blocked">Blocked</string>
+
+  <string name="activity_title">Activity</string>
+  <string name="activity_subtitle">What your sessions are doing now</string>
+  <string name="activity_now">Now</string>
+  <string name="activity_recent">Recent</string>
+  <string name="activity_empty_title">No activity yet</string>
+  <string name="activity_empty_body">Connect a session to see its live status here.</string>
+  <string name="activity_no_events">No recent activity.</string>
+  <string name="activity_nothing_needs_you">Nothing needs you right now.</string>
+  <string name="activity_event_added">Session added</string>
+  <string name="activity_event_removed">Session closed</string>
+  <string name="activity_event_status">Status changed to %1$s</string>
+  <string name="activity_event_needs_input">Needs your input</string>
+  <string name="activity_event_notice">Notice: %1$s</string>
+  <string name="activity_event_todo">Todo: %1$s</string>
+  <string name="activity_event_subagents">Subagents: %1$d running</string>
+  <string name="activity_needs_you">%1$d needs you</string>
+  <string name="activity_active">%1$d active</string>
+  <string name="activity_live">%1$d live</string>
+  <string name="activity_last_active">Last active %1$s</string>
 </resources>

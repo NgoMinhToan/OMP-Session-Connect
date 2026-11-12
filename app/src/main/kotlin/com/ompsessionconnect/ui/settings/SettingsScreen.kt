@@ -9,8 +9,10 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,22 +20,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -45,7 +43,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -54,12 +54,16 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ompsessionconnect.R
 import com.ompsessionconnect.domain.model.ThemeMode
+import com.ompsessionconnect.ui.theme.LiveGlassShapes
+import com.ompsessionconnect.ui.theme.LocalLiveGlass
+import com.ompsessionconnect.ui.theme.LocalSessionStatusColors
 
 @Composable
 fun SettingsScreen(
   viewModel: SettingsViewModel,
-  onBack: () -> Unit,
+  modifier: Modifier = Modifier,
 ) {
+  val tokens = LocalLiveGlass.current
   val settings by viewModel.settings.collectAsStateWithLifecycle()
   val context = LocalContext.current
   var notificationsAllowed by remember { mutableStateOf(notificationsAllowed(context)) }
@@ -67,6 +71,7 @@ fun SettingsScreen(
   val permissionLauncher = rememberLauncherForActivityResult(
     ActivityResultContracts.RequestPermission(),
   ) { notificationsAllowed = it || notificationsAllowed(context) }
+  val dynamicSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
   DisposableEffect(lifecycleOwner) {
     val observer = LifecycleEventObserver { _, event ->
@@ -76,47 +81,50 @@ fun SettingsScreen(
     onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
   }
 
-  Scaffold(
-    topBar = {
-      TopAppBar(
-        title = { Text(stringResource(R.string.settings_title)) },
-        navigationIcon = {
-          IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.action_back))
-          }
-        },
-      )
-    },
-  ) { padding ->
-    LazyColumn(
-      modifier = Modifier
-        .fillMaxSize()
-        .padding(padding),
-      contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 8.dp),
-    ) {
-      item(key = "appearance", contentType = "header") {
-        SettingsHeader(stringResource(R.string.settings_appearance))
-      }
-      items(ThemeMode.entries, key = { it.name }, contentType = { "theme" }) { mode ->
-        ThemeRow(
-          mode = mode,
-          selected = settings.themeMode == mode,
-          onSelect = { viewModel.setTheme(mode) },
+  LazyColumn(
+    modifier = modifier.fillMaxSize(),
+    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 28.dp),
+    verticalArrangement = Arrangement.spacedBy(10.dp),
+  ) {
+    item(key = "appearance-header", contentType = "header") {
+      SettingsSectionLabel(stringResource(R.string.settings_appearance))
+    }
+    item(key = "appearance-panel", contentType = "panel") {
+      SettingsPanel {
+        ThemeMode.entries.forEach { mode ->
+          ThemeRow(
+            mode = mode,
+            selected = settings.themeMode == mode,
+            onSelect = { viewModel.setTheme(mode) },
+          )
+          GlassDivider()
+        }
+        ToggleRow(
+          title = stringResource(R.string.settings_dynamic_color),
+          description = if (dynamicSupported) {
+            stringResource(R.string.settings_dynamic_color_desc)
+          } else {
+            stringResource(R.string.settings_dynamic_color_unsupported)
+          },
+          checked = settings.dynamicColor && dynamicSupported,
+          enabled = dynamicSupported,
+          onCheckedChange = viewModel::setDynamicColor,
         )
       }
+    }
 
-      item(key = "notif-header", contentType = "header") {
-        SettingsHeader(stringResource(R.string.settings_notifications))
-      }
-      item(key = "master", contentType = "toggle") {
+    item(key = "notifications-header", contentType = "header") {
+      SettingsSectionLabel(stringResource(R.string.settings_notifications))
+    }
+    item(key = "notifications-panel", contentType = "panel") {
+      SettingsPanel {
         ToggleRow(
           title = stringResource(R.string.settings_notifications_master),
           description = stringResource(R.string.settings_notifications_master_desc),
           checked = settings.notificationsEnabled,
           onCheckedChange = viewModel::setNotificationsEnabled,
         )
-      }
-      item(key = "finished", contentType = "toggle") {
+        GlassDivider()
         ToggleRow(
           title = stringResource(R.string.settings_notify_finished),
           description = stringResource(R.string.settings_notify_finished_desc),
@@ -124,8 +132,7 @@ fun SettingsScreen(
           enabled = settings.notificationsEnabled,
           onCheckedChange = viewModel::setNotifyTurnFinished,
         )
-      }
-      item(key = "errors", contentType = "toggle") {
+        GlassDivider()
         ToggleRow(
           title = stringResource(R.string.settings_notify_errors),
           description = stringResource(R.string.settings_notify_errors_desc),
@@ -133,8 +140,15 @@ fun SettingsScreen(
           enabled = settings.notificationsEnabled,
           onCheckedChange = viewModel::setNotifyErrors,
         )
-      }
-      item(key = "progress", contentType = "toggle") {
+        GlassDivider()
+        ToggleRow(
+          title = stringResource(R.string.settings_notify_live_messages),
+          description = stringResource(R.string.settings_notify_live_messages_desc),
+          checked = settings.notifyLiveMessages,
+          enabled = settings.notificationsEnabled,
+          onCheckedChange = viewModel::setNotifyLiveMessages,
+        )
+        GlassDivider()
         ToggleRow(
           title = stringResource(R.string.settings_notify_progress),
           description = stringResource(R.string.settings_notify_progress_desc),
@@ -143,18 +157,13 @@ fun SettingsScreen(
           onCheckedChange = viewModel::setNotifyLiveProgress,
         )
       }
+    }
 
-      item(key = "liveMessages", contentType = "toggle") {
-        ToggleRow(
-          title = stringResource(R.string.settings_notify_live_messages),
-          description = stringResource(R.string.settings_notify_live_messages_desc),
-          checked = settings.notifyLiveMessages,
-          enabled = settings.notificationsEnabled,
-          onCheckedChange = viewModel::setNotifyLiveMessages,
-        )
-      }
-
-      item(key = "permission", contentType = "permission") {
+    item(key = "permission-header", contentType = "header") {
+      SettingsSectionLabel(stringResource(R.string.settings_permission_section))
+    }
+    item(key = "permission-panel", contentType = "panel") {
+      SettingsPanel {
         NotificationPermissionRow(
           allowed = notificationsAllowed,
           onRequest = {
@@ -180,12 +189,37 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SettingsHeader(text: String) {
+private fun SettingsSectionLabel(text: String) {
   Text(
-    text = text,
-    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 6.dp),
-    style = MaterialTheme.typography.labelLarge,
-    color = MaterialTheme.colorScheme.primary,
+    text = text.uppercase(),
+    modifier = Modifier.padding(start = 4.dp, top = 10.dp, bottom = 0.dp),
+    style = MaterialTheme.typography.labelMedium,
+    fontWeight = FontWeight.SemiBold,
+    letterSpacing = 1.2.sp,
+    color = LocalLiveGlass.current.muted,
+  )
+}
+
+@Composable
+private fun SettingsPanel(content: @Composable () -> Unit) {
+  val tokens = LocalLiveGlass.current
+  Surface(
+    modifier = Modifier.fillMaxWidth(),
+    shape = LiveGlassShapes.Panel,
+    color = tokens.glass,
+    border = BorderStroke(1.dp, tokens.edge),
+    shadowElevation = 8.dp,
+  ) {
+    Column { content() }
+  }
+}
+
+@Composable
+private fun GlassDivider() {
+  HorizontalDivider(
+    modifier = Modifier.padding(start = 16.dp),
+    thickness = 1.dp,
+    color = LocalLiveGlass.current.hairline,
   )
 }
 
@@ -195,6 +229,7 @@ private fun ThemeRow(
   selected: Boolean,
   onSelect: () -> Unit,
 ) {
+  val tokens = LocalLiveGlass.current
   val (title, description) = when (mode) {
     ThemeMode.SYSTEM -> R.string.settings_theme_system to R.string.settings_theme_system_desc
     ThemeMode.LIGHT -> R.string.settings_theme_light to R.string.settings_theme_light_desc
@@ -203,21 +238,29 @@ private fun ThemeRow(
   Row(
     modifier = Modifier
       .fillMaxWidth()
-      .selectable(
-        selected = selected,
-        role = Role.RadioButton,
-        onClick = onSelect,
-      )
-      .padding(horizontal = 16.dp, vertical = 8.dp),
+      .selectable(selected = selected, role = Role.RadioButton, onClick = onSelect)
+      .padding(horizontal = 16.dp, vertical = 12.dp),
     verticalAlignment = Alignment.CenterVertically,
   ) {
-    RadioButton(selected = selected, onClick = null)
-    Column(modifier = Modifier.padding(start = 8.dp)) {
-      Text(stringResource(title), style = MaterialTheme.typography.bodyLarge)
+    RadioButton(
+      selected = selected,
+      onClick = null,
+      colors = RadioButtonDefaults.colors(
+        selectedColor = tokens.primary,
+        unselectedColor = tokens.muted,
+      ),
+    )
+    Column(modifier = Modifier.padding(start = 10.dp)) {
+      Text(
+        stringResource(title),
+        style = MaterialTheme.typography.bodyLarge,
+        fontWeight = FontWeight.SemiBold,
+        color = tokens.ink,
+      )
       Text(
         stringResource(description),
         style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        color = tokens.muted,
       )
     }
   }
@@ -231,6 +274,7 @@ private fun ToggleRow(
   enabled: Boolean = true,
   onCheckedChange: (Boolean) -> Unit,
 ) {
+  val tokens = LocalLiveGlass.current
   Row(
     modifier = Modifier
       .fillMaxWidth()
@@ -240,22 +284,35 @@ private fun ToggleRow(
         role = Role.Switch,
         onValueChange = onCheckedChange,
       )
-      .padding(horizontal = 16.dp, vertical = 10.dp),
+      .padding(horizontal = 16.dp, vertical = 12.dp),
     verticalAlignment = Alignment.CenterVertically,
     horizontalArrangement = Arrangement.spacedBy(12.dp),
   ) {
     Column(modifier = Modifier.weight(1f)) {
-      Text(title, style = MaterialTheme.typography.bodyLarge)
+      Text(
+        title,
+        style = MaterialTheme.typography.bodyLarge,
+        fontWeight = FontWeight.SemiBold,
+        color = tokens.ink,
+      )
       Text(
         description,
         style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        color = tokens.muted,
       )
     }
     Switch(
       checked = checked,
       onCheckedChange = null,
       enabled = enabled,
+      colors = SwitchDefaults.colors(
+        checkedThumbColor = tokens.onPrimary,
+        checkedTrackColor = tokens.primary,
+        checkedBorderColor = tokens.primary,
+        uncheckedThumbColor = tokens.muted,
+        uncheckedTrackColor = tokens.hairline,
+        uncheckedBorderColor = tokens.muted.copy(alpha = 0.5f),
+      ),
     )
   }
 }
@@ -266,36 +323,45 @@ private fun NotificationPermissionRow(
   onRequest: () -> Unit,
   onOpenSettings: () -> Unit,
 ) {
-  Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+  val tokens = LocalLiveGlass.current
+  val status = LocalSessionStatusColors.current
+  Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
     Text(
       stringResource(R.string.settings_permission_title),
       style = MaterialTheme.typography.titleSmall,
+      color = tokens.ink,
     )
     Text(
       text = stringResource(
         if (allowed) R.string.settings_permission_granted else R.string.settings_permission_denied,
       ),
       style = MaterialTheme.typography.bodySmall,
-      color = if (allowed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+      color = if (allowed) status.liveText else status.errorText,
     )
     if (!allowed) {
       Spacer(Modifier.height(4.dp))
       Text(
         stringResource(R.string.settings_permission_body),
         style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        color = tokens.muted,
       )
       Spacer(Modifier.height(8.dp))
       Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Button(onClick = onRequest) {
+        Button(onClick = onRequest, shape = LiveGlassShapes.Pill) {
           Text(stringResource(R.string.settings_permission_allow))
         }
         TextButton(onClick = onOpenSettings) {
           Text(stringResource(R.string.settings_permission_open))
         }
       }
+    } else {
+      TextButton(
+        onClick = onOpenSettings,
+        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 4.dp),
+      ) {
+        Text(stringResource(R.string.settings_permission_open))
+      }
     }
-    HorizontalDivider(modifier = Modifier.padding(top = 12.dp))
   }
 }
 

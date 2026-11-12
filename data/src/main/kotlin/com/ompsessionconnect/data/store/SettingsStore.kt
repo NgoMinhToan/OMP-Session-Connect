@@ -32,6 +32,7 @@ class SettingsStore @Inject constructor(
           ThemeMode.DARK.name -> ThemeMode.DARK
           else -> ThemeMode.SYSTEM
         },
+        dynamicColor = preferences[KEY_DYNAMIC_COLOR] ?: true,
         notificationsEnabled = preferences[KEY_NOTIFICATIONS] ?: true,
         notifyTurnFinished = preferences[KEY_FINISHED] ?: true,
         notifyErrors = preferences[KEY_ERRORS] ?: true,
@@ -42,6 +43,10 @@ class SettingsStore @Inject constructor(
 
   suspend fun setThemeMode(mode: ThemeMode) {
     context.settingsDataStore.edit { it[KEY_THEME] = mode.name }
+  }
+
+  suspend fun setDynamicColor(enabled: Boolean) {
+    context.settingsDataStore.edit { it[KEY_DYNAMIC_COLOR] = enabled }
   }
 
   suspend fun setNotificationsEnabled(enabled: Boolean) {
@@ -66,6 +71,7 @@ class SettingsStore @Inject constructor(
 
   private companion object {
     val KEY_THEME = stringPreferencesKey("theme_mode")
+    val KEY_DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
     val KEY_NOTIFICATIONS = booleanPreferencesKey("notifications_enabled")
     val KEY_FINISHED = booleanPreferencesKey("notify_finished")
     val KEY_ERRORS = booleanPreferencesKey("notify_errors")

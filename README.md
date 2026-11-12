@@ -7,6 +7,7 @@ An Android client for [oh-my-pi (omp)](https://omp.sh) collab sessions. Scan the
 ## Features
 
 - **QR pairing** — CameraX + ML Kit reads the QR rendered by `omp /collab`; pasting a link is the fallback.
+- **Live Glass UI** — A wallpaper-derived gradient field, translucent glass sheets, Figtree/JetBrains Mono typography, a three-tab dock, and a bottom-right add FAB. Semantic session colors stay fixed when dynamic color is on.
 - **Multiple rooms** — Every stored room keeps its own sealed WebSocket and transcript. Switching rooms is a list tap.
 - **Live transcripts** — Streamed assistant text, thinking, tool cards with arguments/output, compaction and retry notices.
 - **Run control** — Prompt, stop a turn, and answer host `ask` select/editor requests.
@@ -14,7 +15,8 @@ An Android client for [oh-my-pi (omp)](https://omp.sh) collab sessions. Scan the
 - **Session commands** — A draft starting with `/` is sent to the host Main agent through the collab `agent-cmd` channel, so the session's extension/custom/file commands and prompt templates run on the host. Built-in TUI commands dispatched before the session prompt remain host-only.
 - **Subagent viewer** — Lists host subagents with status and fetches their JSONL transcript on demand (with refresh).
 - **Todo progress** — The latest `todo` tool result is parsed into a compact strip; tap it to see every task, phase, status, and blocker, not only the active item. It also drives live notification updates.
-- **Theme** — System / light / dark, persisted locally.
+- **Activity** — A live digest of session state plus an in-memory log of status changes, notices, and todo changes. It never invents history and resets when the process dies.
+- **Theme** — System / light / dark and an optional wallpaper dynamic color (Android 12+), persisted locally.
 - **Status at a glance** — Connecting, live, working, waiting for input, read-only, reconnecting, ended, error.
 - **Notifications** — Approval requests, finished turns, agent errors/lost connections, plus a silent live notification per running session showing the newest message and (optionally) todo progress. Each category is toggled in Settings.
 - **Close old rooms** — Close one room from its card/menu, or bulk-close ended/failed rooms from the overflow menu.
@@ -47,7 +49,7 @@ domain/   pure Kotlin models, repository contract, use cases (no Android depende
 
 Dependency rule: `app → data, domain`; `data → domain`; `domain` depends only on Kotlin coroutines.
 
-- **UI**: Material 3, dynamic color on Android 12+, edge-to-edge, `collectAsStateWithLifecycle`, immutable list rows with stable keys/content types. Settings apply the theme at the activity root.
+- **UI**: Live Glass on Material 3, optional dynamic color on Android 12+, edge-to-edge, `collectAsStateWithLifecycle`, immutable list rows with stable keys/content types. Status colors live outside the Material scheme so wallpaper changes never recolor live/needs-input/error. Settings apply the theme at the activity root.
 - **State**: One `SessionConnection` owns each room on a single-threaded dispatcher; frames apply in arrival order. Streaming updates publish a new immutable snapshot but reuse the transcript list. Todo phases come from successful `todo` tool results.
 - **Persistence**: DataStore holds a JSON index of sessions plus app settings; each collab link is sealed with an AES-256-GCM key in Android Keystore. Backups are disabled.
 - **Background**: `SessionService` is a `specialUse` foreground service that keeps sockets alive and posts status notifications. It stops when the last room is closed.
@@ -99,6 +101,7 @@ See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the link grammar, envelope layout, 
 - The hosted relay (`my.omp.sh`) is the default; self-hosting the production relay is not distributed by omp.
 - Android 15+ `specialUse` foreground services can be restricted by OEM battery policies. The service requests no exemption.
 - The transcript renders text, thinking, tool cards, notices, and todo progress; full Markdown layout is intentionally out of scope.
+- Activity is an in-memory UI digest, not a persisted audit log; it starts empty after a cold start.
 - Voice dictation depends on the device's speech recognition service (some locales/offline modes may be unavailable).
 - Collab exposes only prompt, abort, agent-cmd, and UI responses. Host-UI built-ins such as `/model`, `/compact`, and `/resume` are dispatched before `AgentSession.prompt` and cannot be invoked by a collab guest; use the host terminal for those.
 - A room added twice is deduplicated by room key. Close a view-only room before adding its control link, because the first link wins.

@@ -162,3 +162,27 @@ Ngoài app còn có **system notification**: notification foreground service, no
 - `10-subagents.png` / `11-subagent-transcript.png` / `12-todo-all.png`: dùng phòng demo tổng hợp có 2 subagent và 4 todo task; không chứa dữ liệu phiên thật.
 - `01-sessions-list.png`: có 3 phòng demo tổng hợp và 1 card phiên thật đang đồng bộ; không có nội dung hội thoại thật trong ảnh.
 - `00-sessions-empty.png`: empty state của cùng build giao diện, chụp trước khi thêm dữ liệu demo.
+
+## 6. Live Glass redesign (implemented)
+
+- Direction: `design-demos/dir-3.html` (Live Glass), approved 3-item dock + 56dp floating add FAB.
+- Screenshots: `design-context/screenshoots/live-glass/` (`sessions-light`, `sessions-dark`,
+  `sessions-dynamic`, `detail-light`, `detail-dark`, `activity-light`, `activity-dark`,
+  `settings-light`, `settings-dark`, `subagents-light`, `subagents-dark`, `todos-light`,
+  `scanner`, `add-link-dark`).
+- Theme: Live Glass fallback schemes in `Color.kt`; `SessionStatusColors` is a separate semantic
+  palette, not Material roles, so dynamic wallpaper changes cannot recolor live/needs-you/error.
+  Dynamic field is derived from the wallpaper primary/tertiary with low chroma; API 26–30 always
+  uses the fallback field.
+- Fonts: bundled Figtree 400/500/600/700/800 and JetBrains Mono 400/500 (`res/font`), OFL licenses
+  under `assets/licenses/`; no runtime font fetch.
+- Glass: gradient field + translucent surfaces + 1dp light edge + shadow. No screenshot-based or
+  backdrop blur; no full-screen `Modifier.blur`.
+- Shell: Sessions / Activity / Settings dock, FAB only on Sessions, detail/scanner are separate
+  full-screen routes with no dock. Settings is a tab, not a pushed screen, and has no back arrow.
+- Activity: live digest of current session state plus an in-memory log of status/notice/todo changes.
+  No persisted history and no invented rows; it resets when the process dies.
+- Dynamic color setting: added to `AppSettings`, `SettingsRepository`/store, Settings UI, and
+  consumed by `MainActivity`.
+- Preserved flows: add/scan, add-link dialog, close/reconnect, ask panel, command hint, voice,
+  subagents/transcript, todo sheet, settings permission row, notifications.

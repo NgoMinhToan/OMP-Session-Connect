@@ -3,11 +3,14 @@
 package com.ompsessionconnect.ui.scanner
 
 import android.Manifest
+import android.app.Activity
 import android.content.pm.PackageManager
 import android.os.Handler
 import android.os.Looper
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.OptIn as AndroidXOptIn
+import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -15,27 +18,30 @@ import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -50,11 +56,13 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -68,6 +76,11 @@ import com.google.mlkit.vision.common.InputImage
 import com.ompsessionconnect.R
 import com.ompsessionconnect.ui.AppViewModel
 import com.ompsessionconnect.ui.components.AddLinkDialog
+import com.ompsessionconnect.ui.components.GlassIconButton
+import com.ompsessionconnect.ui.theme.LiveGlassShapes
+import com.ompsessionconnect.ui.theme.LocalLiveGlass
+import com.ompsessionconnect.ui.theme.LocalSessionStatusColors
+import androidx.core.view.WindowCompat
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -79,6 +92,10 @@ fun QrScannerScreen(
   onAdded: (String) -> Unit,
 ) {
   val context = LocalContext.current
+  val view = LocalView.current
+  val tokens = LocalLiveGlass.current
+  val status = LocalSessionStatusColors.current
+  val invalidMessage = stringResource(R.string.scan_invalid)
   val scope = rememberCoroutineScope()
   var granted by remember {
     mutableStateOf(
@@ -95,6 +112,22 @@ fun QrScannerScreen(
   val permissionLauncher = rememberLauncherForActivityResult(
     ActivityResultContracts.RequestPermission(),
   ) { granted = it }
+  val scannerBackground = remember {
+    Brush.verticalGradient(
+      listOf(Color(0xFF071318), Color(0xFF0C1230), Color(0xFF1B1030)),
+    )
+  }
+
+  DisposableEffect(tokens.dark) {
+    val window = (context as? Activity)?.window
+    val controller = window?.let { WindowCompat.getInsetsController(it, view) }
+    controller?.isAppearanceLightStatusBars = false
+    controller?.isAppearanceLightNavigationBars = false
+    onDispose {
+      controller?.isAppearanceLightStatusBars = !tokens.dark
+      controller?.isAppearanceLightNavigationBars = !tokens.dark
+    }
+  }
 
   LaunchedEffect(Unit) {
     if (!granted) permissionLauncher.launch(Manifest.permission.CAMERA)
@@ -112,118 +145,141 @@ fun QrScannerScreen(
         }
         .onFailure { throwable ->
           adding = false
-          error = throwable.message ?: context.getString(R.string.scan_invalid)
+          error = throwable.message ?: invalidMessage
           scanEnabled.set(true)
         }
     }
   }
 
-  Scaffold(
-    topBar = {
-      TopAppBar(
-        title = { Text(stringResource(R.string.scan_title)) },
-        navigationIcon = {
-          IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.action_back))
-          }
-        },
-        actions = {
-          if (granted) {
-            TextButton(
-              onClick = {
-                torchOn = !torchOn
-                camera?.cameraControl?.enableTorch(torchOn)
-              },
-            ) {
-              Text(
-                stringResource(
-                  if (torchOn) R.string.action_torch_off else R.string.action_torch_on,
-                ),
-              )
-            }
-          }
+  Box(
+    modifier = Modifier
+      .fillMaxSize()
+      .background(scannerBackground),
+  ) {
+    if (granted) {
+      CameraPreview(
+        onCameraReady = { camera = it },
+        onQrCode = { raw ->
+          if (scanEnabled.compareAndSet(true, false)) submit(raw)
         },
       )
-    },
-  ) { innerPadding ->
-    Box(
-      modifier = Modifier
-        .fillMaxSize()
-        .padding(innerPadding),
-    ) {
-      if (granted) {
-        CameraPreview(
-          onCameraReady = { camera = it },
-          onQrCode = { raw ->
-            if (scanEnabled.compareAndSet(true, false)) submit(raw)
-          },
-        )
-        ScannerOverlay()
-      } else {
-        CameraPermissionPrompt(
-          onRequest = { permissionLauncher.launch(Manifest.permission.CAMERA) },
-        )
-      }
+      ScannerOverlay()
+    } else {
+      CameraPermissionPrompt(
+        onRequest = { permissionLauncher.launch(Manifest.permission.CAMERA) },
+      )
+    }
 
-      Column(
-        modifier = Modifier
-          .align(Alignment.BottomCenter)
-          .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+    Row(
+      modifier = Modifier
+        .fillMaxWidth()
+        .statusBarsPadding()
+        .padding(horizontal = 12.dp, vertical = 8.dp),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+      GlassIconButton(
+        icon = Icons.AutoMirrored.Outlined.ArrowBack,
+        contentDescription = stringResource(R.string.action_back),
+        onClick = onBack,
+      )
+      Text(
+        text = stringResource(R.string.scan_title),
+        style = MaterialTheme.typography.titleSmall,
+        color = Color.White,
+        modifier = Modifier.weight(1f),
+      )
+      if (granted) {
+        Surface(
+          shape = LiveGlassShapes.Pill,
+          color = tokens.glass,
+          contentColor = tokens.ink,
+          border = BorderStroke(1.dp, tokens.edge),
+        ) {
+          TextButton(
+            onClick = {
+              torchOn = !torchOn
+              camera?.cameraControl?.enableTorch(torchOn)
+            },
+          ) {
+            Text(
+              text = stringResource(
+                if (torchOn) R.string.action_torch_off else R.string.action_torch_on,
+              ),
+              color = tokens.ink,
+            )
+          }
+        }
+      }
+    }
+
+    Column(
+      modifier = Modifier
+        .align(Alignment.BottomCenter)
+        .navigationBarsPadding()
+        .padding(20.dp),
+      horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+      error?.let { message ->
+        Surface(
+          shape = LiveGlassShapes.Room,
+          color = tokens.sheetOpaque,
+          contentColor = status.errorText,
+          border = BorderStroke(1.dp, status.error.copy(alpha = 0.4f)),
+          modifier = Modifier.padding(bottom = 10.dp),
+        ) {
+          Text(
+            text = message,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            style = MaterialTheme.typography.bodyMedium,
+          )
+        }
+      }
+      if (adding) {
+        Surface(
+          shape = LiveGlassShapes.Pill,
+          color = tokens.sheetOpaque,
+          contentColor = tokens.ink,
+          modifier = Modifier.padding(bottom = 10.dp),
+        ) {
+          Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            CircularProgressIndicator(
+              modifier = Modifier.size(16.dp),
+              strokeWidth = 2.dp,
+              color = tokens.primary,
+            )
+            Text(stringResource(R.string.status_connecting), color = tokens.ink)
+          }
+        }
+      }
+      if (granted) {
+        Surface(
+          shape = LiveGlassShapes.Pill,
+          color = tokens.sheetOpaque,
+          contentColor = tokens.ink,
+          border = BorderStroke(1.dp, tokens.edge),
+        ) {
+          Text(
+            text = stringResource(R.string.scan_hint),
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            color = tokens.ink,
+          )
+        }
+      }
+      Spacer(Modifier.height(8.dp))
+      Surface(
+        shape = LiveGlassShapes.Pill,
+        color = tokens.glass,
+        contentColor = tokens.ink,
+        border = BorderStroke(1.dp, tokens.edge),
       ) {
-        error?.let { message ->
-          Surface(
-            shape = MaterialTheme.shapes.large,
-            color = MaterialTheme.colorScheme.errorContainer,
-            contentColor = MaterialTheme.colorScheme.onErrorContainer,
-            modifier = Modifier.padding(bottom = 12.dp),
-          ) {
-            Text(
-              text = message,
-              modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-              style = MaterialTheme.typography.bodyMedium,
-            )
-          }
-        }
-        if (adding) {
-          Surface(
-            shape = MaterialTheme.shapes.large,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            modifier = Modifier.padding(bottom = 12.dp),
-          ) {
-            Surface(
-              color = Color.Transparent,
-            ) {
-              androidx.compose.foundation.layout.Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-              ) {
-                CircularProgressIndicator(
-                  modifier = Modifier.size(16.dp),
-                  strokeWidth = 2.dp,
-                )
-                Text(stringResource(R.string.status_connecting))
-              }
-            }
-          }
-        }
-        if (granted) {
-          Surface(
-            shape = MaterialTheme.shapes.extraLarge,
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-            contentColor = MaterialTheme.colorScheme.onSurface,
-          ) {
-            Text(
-              text = stringResource(R.string.scan_hint),
-              modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-              style = MaterialTheme.typography.bodyMedium,
-            )
-          }
-        }
-        Spacer(Modifier.height(8.dp))
         TextButton(onClick = { showAddDialog = true }) {
-          Text(stringResource(R.string.action_paste_link))
+          Text(stringResource(R.string.action_paste_link), color = tokens.ink)
         }
       }
     }
@@ -301,7 +357,7 @@ private fun CameraPreview(
 
 @Composable
 private fun ScannerOverlay() {
-  val accent = MaterialTheme.colorScheme.primary
+  val accent = LocalLiveGlass.current.primary
   Canvas(modifier = Modifier.fillMaxSize()) {
     val boxSize = size.minDimension * 0.68f
     val left = (size.width - boxSize) / 2f
@@ -326,6 +382,7 @@ private fun ScannerOverlay() {
 
 @Composable
 private fun CameraPermissionPrompt(onRequest: () -> Unit) {
+  val tokens = LocalLiveGlass.current
   Column(
     modifier = Modifier
       .fillMaxSize()
@@ -337,26 +394,35 @@ private fun CameraPermissionPrompt(onRequest: () -> Unit) {
       painterResource(R.drawable.ic_qr_code),
       contentDescription = null,
       modifier = Modifier.size(64.dp),
-      tint = MaterialTheme.colorScheme.primary,
+      tint = tokens.primary,
     )
     Spacer(Modifier.height(16.dp))
     Text(
       text = stringResource(R.string.scan_permission_title),
       style = MaterialTheme.typography.titleLarge,
+      color = Color.White,
     )
     Spacer(Modifier.height(8.dp))
     Text(
       text = stringResource(R.string.scan_permission_body),
       style = MaterialTheme.typography.bodyMedium,
-      color = MaterialTheme.colorScheme.onSurfaceVariant,
+      color = Color.White.copy(alpha = 0.75f),
     )
     Spacer(Modifier.height(20.dp))
-    Button(onClick = onRequest) {
+    Button(
+      onClick = onRequest,
+      shape = LiveGlassShapes.Pill,
+      colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+        containerColor = tokens.primary,
+        contentColor = tokens.onPrimary,
+      ),
+    ) {
       Text(stringResource(R.string.action_allow_camera))
     }
   }
 }
 
+@AndroidXOptIn(markerClass = [ExperimentalGetImage::class])
 private class QrAnalyzer(
   private val onQrCode: (String) -> Unit,
 ) : ImageAnalysis.Analyzer {

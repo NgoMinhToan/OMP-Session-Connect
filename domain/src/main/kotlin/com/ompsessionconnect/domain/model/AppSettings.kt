@@ -4,6 +4,7 @@ enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
 data class AppSettings(
   val themeMode: ThemeMode = ThemeMode.SYSTEM,
+  val dynamicColor: Boolean = true,
   val notificationsEnabled: Boolean = true,
   val notifyTurnFinished: Boolean = true,
   val notifyErrors: Boolean = true,

@@ -1,48 +1,151 @@
 package com.ompsessionconnect.ui.theme
 
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
-// Material 3 fallback palette used before Android 12's dynamic color.
-val TealPrimaryLight = Color(0xFF006A60)
-val TealOnPrimaryLight = Color(0xFFFFFFFF)
-val TealContainerLight = Color(0xFF74F8E5)
-val TealOnContainerLight = Color(0xFF00201C)
+// Fallback palette for Live Glass. Dynamic color keeps these semantics but
+// replaces primary/containers and tints the field from the wallpaper.
+val LiveGlassLightPrimary = Color(0xFF006A60)
+val LiveGlassLightOnPrimary = Color(0xFFFFFFFF)
+val LiveGlassLightSecondary = Color(0xFF4A5CC9)
+val LiveGlassLightInk = Color(0xFF101418)
+val LiveGlassLightMuted = Color(0xFF4E5A66)
 
-val SlateSecondaryLight = Color(0xFF4A635F)
-val SlateOnSecondaryLight = Color(0xFFFFFFFF)
-val SlateContainerLight = Color(0xFFCCE7E2)
-val SlateOnContainerLight = Color(0xFF05201D)
+val LiveGlassDarkPrimary = Color(0xFF53DBC9)
+val LiveGlassDarkOnPrimary = Color(0xFF003731)
+val LiveGlassDarkInk = Color(0xFFF2F5F7)
+val LiveGlassDarkMuted = Color(0xFFA9B4C0)
 
-val SkyTertiaryLight = Color(0xFF3F6374)
-val SkyOnTertiaryLight = Color(0xFFFFFFFF)
-val SkyContainerLight = Color(0xFFC2E8FB)
-val SkyOnContainerLight = Color(0xFF001F2A)
+val LiveGlassLightFieldA = Color(0xFFE9FBF6)
+val LiveGlassLightFieldB = Color(0xFFE4EDFF)
+val LiveGlassLightFieldC = Color(0xFFF3E8FF)
+val LiveGlassDarkFieldA = Color(0xFF071318)
+val LiveGlassDarkFieldB = Color(0xFF0C1230)
+val LiveGlassDarkFieldC = Color(0xFF1B1030)
 
-val SurfaceLight = Color(0xFFF4FBF8)
-val OnSurfaceLight = Color(0xFF161D1B)
-val SurfaceVariantLight = Color(0xFFDAE5E1)
-val OnSurfaceVariantLight = Color(0xFF3F4946)
-val OutlineLight = Color(0xFF6F7977)
-val BackgroundLight = Color(0xFFF4FBF8)
+val LiveGlassLightGlass = Color(0x8CFFFFFF) // 55%
+val LiveGlassLightGlassStrong = Color(0xC2FFFFFF) // 76%
+val LiveGlassLightSheetOpaque = Color(0xFFFFFFFF) // opaque reading sheet
+val LiveGlassLightEdge = Color(0xBFFFFFFF) // 75%
+val LiveGlassLightInset = Color(0x57FFFFFF)
+val LiveGlassLightHairline = Color(0x14101418)
 
-val TealPrimaryDark = Color(0xFF53DBC9)
-val TealOnPrimaryDark = Color(0xFF003731)
-val TealContainerDark = Color(0xFF005048)
-val TealOnContainerDark = Color(0xFF74F8E5)
+val LiveGlassDarkGlass = Color(0x8C141826) // rgba(20,24,38,.55)
+val LiveGlassDarkGlassStrong = Color(0xCC1B2031)
+val LiveGlassDarkSheetOpaque = Color(0xFF141826)
+val LiveGlassDarkEdge = Color(0x29FFFFFF) // 16%
+val LiveGlassDarkInset = Color(0x0FFFFFFF)
+val LiveGlassDarkHairline = Color(0x17FFFFFF)
 
-val SlateSecondaryDark = Color(0xFFB1CCC7)
-val SlateOnSecondaryDark = Color(0xFF1C3531)
-val SlateContainerDark = Color(0xFF334B47)
-val SlateOnContainerDark = Color(0xFFCCE7E2)
+val LiveGlassLightShadow = Color(0x47183046)
+val LiveGlassDarkShadow = Color(0x80000000)
 
-val SkyTertiaryDark = Color(0xFFA6CCDF)
-val SkyOnTertiaryDark = Color(0xFF093544)
-val SkyContainerDark = Color(0xFF264B5C)
-val SkyOnContainerDark = Color(0xFFC2E8FB)
+val LiveGlassLightBloomA = Color(0x380E8F8A)
+val LiveGlassLightBloomB = Color(0x2EB4457A)
+val LiveGlassDarkBloomA = Color(0x2453DBC9)
+val LiveGlassDarkBloomB = Color(0x38B4457A)
 
-val SurfaceDark = Color(0xFF0E1513)
-val OnSurfaceDark = Color(0xFFDEE4E1)
-val SurfaceVariantDark = Color(0xFF3F4946)
-val OnSurfaceVariantDark = Color(0xFFBEC9C6)
-val OutlineDark = Color(0xFF889390)
-val BackgroundDark = Color(0xFF0E1513)
+@Immutable
+data class SessionStatusPalette(
+  val live: Color,
+  val liveText: Color,
+  val working: Color,
+  val workingText: Color,
+  val waiting: Color,
+  val waitingText: Color,
+  val error: Color,
+  val errorText: Color,
+  val watching: Color,
+  val ended: Color,
+  val completed: Color,
+  val progress: Color,
+  val pending: Color,
+  val blocked: Color,
+)
+
+/** Semantic status colors are intentionally independent of Material roles. */
+object SessionStatusColors {
+  val Light = SessionStatusPalette(
+    live = Color(0xFF0F9D74),
+    liveText = Color(0xFF0B7A57),
+    working = Color(0xFF3B6FE0),
+    workingText = Color(0xFF2C5BC4),
+    waiting = Color(0xFFE8590C),
+    waitingText = Color(0xFFA63E00),
+    error = Color(0xFFD64545),
+    errorText = Color(0xFFC23434),
+    watching = Color(0xFF4E5A66),
+    ended = Color(0xFF68737A),
+    completed = Color(0xFF68737A),
+    progress = Color(0xFF3B6FE0),
+    pending = Color(0xFF68737A),
+    blocked = Color(0xFFD64545),
+  )
+
+  val Dark = SessionStatusPalette(
+    live = Color(0xFF34D399),
+    liveText = Color(0xFF34D399),
+    working = Color(0xFF7FA9FF),
+    workingText = Color(0xFF7FA9FF),
+    waiting = Color(0xFFFFAB70),
+    waitingText = Color(0xFFFFAB70),
+    error = Color(0xFFFF8A80),
+    errorText = Color(0xFFFF8A80),
+    watching = Color(0xFFA9B4C0),
+    ended = Color(0xFF93A0AD),
+    completed = Color(0xFFA9B4C0),
+    progress = Color(0xFF7FA9FF),
+    pending = Color(0xFFA9B4C0),
+    blocked = Color(0xFFFF8A80),
+  )
+}
+
+val LocalSessionStatusColors = staticCompositionLocalOf { SessionStatusColors.Light }
+
+@Immutable
+data class LiveGlassTokens(
+  val dark: Boolean,
+  val fieldA: Color,
+  val fieldB: Color,
+  val fieldC: Color,
+  val bloomA: Color,
+  val bloomB: Color,
+  val glass: Color,
+  val glassStrong: Color,
+  val sheetOpaque: Color,
+  val glassInset: Color,
+  val edge: Color,
+  val hairline: Color,
+  val ink: Color,
+  val muted: Color,
+  val primary: Color,
+  val onPrimary: Color,
+  val inkFill: Color,
+  val onInk: Color,
+  val shadow: Color,
+)
+
+val DefaultLiveGlassTokens = LiveGlassTokens(
+  dark = false,
+  fieldA = LiveGlassLightFieldA,
+  fieldB = LiveGlassLightFieldB,
+  fieldC = LiveGlassLightFieldC,
+  bloomA = LiveGlassLightBloomA,
+  bloomB = LiveGlassLightBloomB,
+  glass = LiveGlassLightGlass,
+  glassStrong = LiveGlassLightGlassStrong,
+  sheetOpaque = LiveGlassLightSheetOpaque,
+  glassInset = LiveGlassLightInset,
+  edge = LiveGlassLightEdge,
+  hairline = LiveGlassLightHairline,
+  ink = LiveGlassLightInk,
+  muted = LiveGlassLightMuted,
+  primary = LiveGlassLightPrimary,
+  onPrimary = LiveGlassLightOnPrimary,
+  inkFill = LiveGlassLightInk,
+  onInk = Color(0xFFFFFFFF),
+  shadow = LiveGlassLightShadow,
+)
+
+val LocalLiveGlass = staticCompositionLocalOf { DefaultLiveGlassTokens }

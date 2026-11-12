@@ -9,6 +9,8 @@ interface SettingsRepository {
 
   suspend fun setThemeMode(mode: ThemeMode)
 
+  suspend fun setDynamicColor(enabled: Boolean)
+
   suspend fun setNotificationsEnabled(enabled: Boolean)
 
   suspend fun setNotifyTurnFinished(enabled: Boolean)

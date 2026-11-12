@@ -1,6 +1,7 @@
 package com.ompsessionconnect.notify
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -77,6 +78,7 @@ class SessionNotifier @Inject constructor(
       .build()
   }
 
+  @SuppressLint("MissingPermission")
   fun notify(alert: SessionAlert) {
     if (!canNotify()) return
     val (title, text) = when (alert) {
@@ -111,6 +113,7 @@ class SessionNotifier @Inject constructor(
     manager.notify(alert.sessionId.notificationId(), notification)
   }
 
+  @SuppressLint("MissingPermission")
   fun notifyLive(
     alert: SessionAlert.Live,
     showMessage: Boolean,

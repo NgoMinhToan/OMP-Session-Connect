@@ -10,6 +10,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -26,6 +27,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import com.ompsessionconnect.R
 import com.ompsessionconnect.domain.model.SessionSummary
+import com.ompsessionconnect.ui.theme.LiveGlassShapes
+import com.ompsessionconnect.ui.theme.LocalLiveGlass
 import kotlinx.coroutines.launch
 
 @Composable
@@ -64,15 +67,25 @@ fun AddLinkDialog(
     }
   }
 
+  val tokens = LocalLiveGlass.current
   AlertDialog(
     onDismissRequest = { if (!loading) onDismiss() },
-    title = { Text(stringResource(R.string.add_link_title)) },
+    shape = LiveGlassShapes.Dialog,
+    containerColor = tokens.sheetOpaque,
+    titleContentColor = tokens.ink,
+    textContentColor = tokens.muted,
+    title = {
+      Text(
+        stringResource(R.string.add_link_title),
+        style = MaterialTheme.typography.titleMedium,
+      )
+    },
     text = {
       Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
         Text(
           text = stringResource(R.string.empty_body),
           style = MaterialTheme.typography.bodyMedium,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          color = tokens.muted,
         )
         Spacer(Modifier.height(16.dp))
         OutlinedTextField(
@@ -94,6 +107,12 @@ fun AddLinkDialog(
             null
           },
           keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+          shape = com.ompsessionconnect.ui.theme.LiveGlassShapes.Room,
+          colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = tokens.primary,
+            unfocusedBorderColor = tokens.muted.copy(alpha = 0.45f),
+            cursorColor = tokens.primary,
+          ),
         )
       }
     },
@@ -122,9 +141,14 @@ fun ConfirmDialog(
   onConfirm: () -> Unit,
   onDismiss: () -> Unit,
 ) {
+  val tokens = LocalLiveGlass.current
   AlertDialog(
     onDismissRequest = onDismiss,
-    title = { Text(title) },
+    shape = LiveGlassShapes.Dialog,
+    containerColor = tokens.sheetOpaque,
+    titleContentColor = tokens.ink,
+    textContentColor = tokens.muted,
+    title = { Text(title, style = MaterialTheme.typography.titleMedium) },
     text = { Text(body) },
     confirmButton = {
       TextButton(onClick = onConfirm) { Text(confirmLabel) }

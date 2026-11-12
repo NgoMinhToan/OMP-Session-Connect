@@ -24,6 +24,10 @@ class SettingsViewModel @Inject constructor(
     viewModelScope.launch { repository.setThemeMode(mode) }
   }
 
+  fun setDynamicColor(enabled: Boolean) {
+    viewModelScope.launch { repository.setDynamicColor(enabled) }
+  }
+
   fun setNotificationsEnabled(enabled: Boolean) {
     viewModelScope.launch { repository.setNotificationsEnabled(enabled) }
   }

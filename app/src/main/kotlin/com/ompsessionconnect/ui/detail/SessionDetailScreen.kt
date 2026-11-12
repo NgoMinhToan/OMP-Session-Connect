@@ -10,6 +10,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -18,6 +19,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -27,6 +30,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -37,7 +41,6 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Send
-import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Close
@@ -52,27 +55,24 @@ import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -86,9 +86,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -116,10 +118,15 @@ import com.ompsessionconnect.domain.model.UserMessageItem
 import com.ompsessionconnect.ui.AppEvent
 import com.ompsessionconnect.ui.AppViewModel
 import com.ompsessionconnect.ui.components.ConfirmDialog
+import com.ompsessionconnect.ui.components.GlassIconButton
 import com.ompsessionconnect.ui.components.StatusPill
 import com.ompsessionconnect.ui.components.rememberVoiceInput
 import com.ompsessionconnect.ui.components.statusLabelRes
+import com.ompsessionconnect.ui.theme.CodeMediumTextStyle
 import com.ompsessionconnect.ui.theme.CodeTextStyle
+import com.ompsessionconnect.ui.theme.LiveGlassShapes
+import com.ompsessionconnect.ui.theme.LocalLiveGlass
+import com.ompsessionconnect.ui.theme.LocalSessionStatusColors
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -133,15 +140,18 @@ fun SessionDetailScreen(
   onBack: () -> Unit,
 ) {
   val context = LocalContext.current
+  val resources = LocalResources.current
+  val genericError = stringResource(R.string.error_generic)
+  val sessionClosedText = stringResource(R.string.session_closed)
   val snackbarHostState = remember { SnackbarHostState() }
   val overview = sessions?.firstOrNull { it.id == sessionId }
 
   LaunchedEffect(appViewModel) {
     appViewModel.events.collect { event ->
       val message = when (event) {
-        is AppEvent.Error -> event.message ?: context.getString(R.string.error_generic)
-        AppEvent.SessionClosed -> context.getString(R.string.session_closed)
-        is AppEvent.ClosedEnded -> context.resources.getQuantityString(
+        is AppEvent.Error -> event.message ?: genericError
+        AppEvent.SessionClosed -> sessionClosedText
+        is AppEvent.ClosedEnded -> resources.getQuantityString(
           R.plurals.close_ended_count,
           event.count,
           event.count,
@@ -154,6 +164,7 @@ fun SessionDetailScreen(
   when {
     sessions == null -> {
       Scaffold(
+        containerColor = Color.Transparent,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = { DetailTopBar(title = stringResource(R.string.detail_title), onBack = onBack) },
       ) { padding ->
@@ -169,6 +180,7 @@ fun SessionDetailScreen(
     }
     overview == null -> {
       Scaffold(
+        containerColor = Color.Transparent,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = { DetailTopBar(title = stringResource(R.string.detail_no_session), onBack = onBack) },
       ) { padding ->
@@ -202,6 +214,7 @@ private fun SessionDetailContent(
 ) {
   val snapshot = overview.snapshot
   val status = overview.status
+  val tokens = LocalLiveGlass.current
   var menuOpen by remember { mutableStateOf(false) }
   var closeConfirm by remember { mutableStateOf(false) }
   var subagentsOpen by remember { mutableStateOf(false) }
@@ -213,6 +226,9 @@ private fun SessionDetailContent(
   val listState = rememberLazyListState()
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
+  val voicePermissionDeniedText = stringResource(R.string.voice_permission_denied)
+  val voiceUnavailableText = stringResource(R.string.voice_unavailable)
+  val subagentTranscriptErrorText = stringResource(R.string.subagent_transcript_error)
   var draft by rememberSaveable(overview.id) { mutableStateOf("") }
   var micGranted by remember {
     mutableStateOf(
@@ -233,7 +249,7 @@ private fun SessionDetailContent(
     if (granted) {
       voice.start(draft)
     } else {
-      scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.voice_permission_denied)) }
+      scope.launch { snackbarHostState.showSnackbar(voicePermissionDeniedText) }
     }
   }
   val lifecycleOwner = LocalLifecycleOwner.current
@@ -259,7 +275,7 @@ private fun SessionDetailContent(
         val result = appViewModel.fetchTranscript(overview.id, agent.id, offset)
         if (result.isFailure) {
           agentError = result.exceptionOrNull()?.message
-            ?: context.getString(R.string.subagent_transcript_error)
+            ?: subagentTranscriptErrorText
           break
         }
         val page = result.getOrThrow()
@@ -278,7 +294,7 @@ private fun SessionDetailContent(
   fun onMicClick() {
     when {
       !voice.available -> scope.launch {
-        snackbarHostState.showSnackbar(context.getString(R.string.voice_unavailable))
+        snackbarHostState.showSnackbar(voiceUnavailableText)
       }
       voice.listening -> voice.stop()
       micGranted -> voice.start(draft)
@@ -293,13 +309,30 @@ private fun SessionDetailContent(
   val streamThinking = snapshot?.streamingThinking
 
   Scaffold(
+    containerColor = Color.Transparent,
     snackbarHost = { SnackbarHost(snackbarHostState) },
     topBar = {
-      TopAppBar(
-        title = {
-          Column {
+      Column(
+        modifier = Modifier
+          .fillMaxWidth()
+          .statusBarsPadding()
+          .padding(horizontal = 12.dp, vertical = 8.dp),
+      ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          GlassIconButton(
+            icon = Icons.AutoMirrored.Outlined.ArrowBack,
+            contentDescription = stringResource(R.string.action_back),
+            onClick = onBack,
+          )
+          Column(
+            modifier = Modifier
+              .weight(1f)
+              .padding(horizontal = 10.dp),
+          ) {
             Text(
               text = overview.title,
+              style = MaterialTheme.typography.titleSmall,
+              color = tokens.ink,
               maxLines = 1,
               overflow = TextOverflow.Ellipsis,
             )
@@ -313,27 +346,24 @@ private fun SessionDetailContent(
                   Icons.Outlined.Lock,
                   contentDescription = stringResource(R.string.status_read_only),
                   modifier = Modifier.size(14.dp),
-                  tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                  tint = tokens.muted,
                 )
               }
             }
           }
-        },
-        navigationIcon = {
-          IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.action_back))
-          }
-        },
-        actions = {
           if (snapshot?.phase == SessionPhase.FAILED || snapshot?.phase == SessionPhase.ENDED) {
-            IconButton(onClick = { appViewModel.reconnect(overview.id) }) {
-              Icon(Icons.Outlined.Refresh, contentDescription = stringResource(R.string.action_reconnect))
-            }
+            GlassIconButton(
+              icon = Icons.Outlined.Refresh,
+              contentDescription = stringResource(R.string.action_reconnect),
+              onClick = { appViewModel.reconnect(overview.id) },
+            )
           }
           Box {
-            IconButton(onClick = { menuOpen = true }) {
-              Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.action_more))
-            }
+            GlassIconButton(
+              icon = Icons.Outlined.MoreVert,
+              contentDescription = stringResource(R.string.action_more),
+              onClick = { menuOpen = true },
+            )
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
               DropdownMenuItem(
                 text = { Text(stringResource(R.string.action_close_session)) },
@@ -345,12 +375,19 @@ private fun SessionDetailContent(
               )
             }
           }
-        },
-      )
+        }
+      }
     },
     bottomBar = {
       if (snapshot != null) {
-        Column(modifier = Modifier.imePadding()) {
+        Column(
+          modifier = Modifier
+            .fillMaxWidth()
+            .imePadding()
+            .navigationBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+          verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
           snapshot.todos?.let { todos ->
             if (todos.tasks.isNotEmpty()) {
               TodoStrip(todos, onClick = { todoSheetOpen = true })
@@ -359,8 +396,10 @@ private fun SessionDetailContent(
           AnimatedVisibility(visible = voice.listening) {
             Surface(
               modifier = Modifier.fillMaxWidth(),
-              color = MaterialTheme.colorScheme.tertiaryContainer,
-              contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+              shape = LiveGlassShapes.Room,
+              color = tokens.glass,
+              contentColor = tokens.ink,
+              border = BorderStroke(1.dp, tokens.edge),
             ) {
               Row(
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
@@ -371,11 +410,14 @@ private fun SessionDetailContent(
                   painterResource(R.drawable.ic_mic),
                   contentDescription = null,
                   modifier = Modifier.size(18.dp),
+                  tint = tokens.ink,
                 )
                 Text(stringResource(R.string.voice_listening), style = MaterialTheme.typography.labelMedium)
                 LinearProgressIndicator(
                   progress = { voice.rms },
                   modifier = Modifier.weight(1f),
+                  color = tokens.primary,
+                  trackColor = tokens.hairline,
                 )
                 TextButton(onClick = { voice.stop() }) {
                   Text(stringResource(R.string.voice_stop))
@@ -467,8 +509,8 @@ private fun SessionDetailContent(
             AssistantBubble(
               text = streamText.orEmpty(),
               thinking = streamThinking.orEmpty(),
-              streaming = snapshot?.working == true,
-              model = snapshot?.modelName,
+              streaming = snapshot.working,
+              model = snapshot.modelName,
             )
           }
         }
@@ -546,18 +588,32 @@ private fun SessionDetailContent(
 
 @Composable
 private fun DetailTopBar(title: String, onBack: () -> Unit) {
-  TopAppBar(
-    title = { Text(title) },
-    navigationIcon = {
-      IconButton(onClick = onBack) {
-        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.action_back))
-      }
-    },
-  )
+  val tokens = LocalLiveGlass.current
+  Row(
+    modifier = Modifier
+      .fillMaxWidth()
+      .statusBarsPadding()
+      .padding(horizontal = 12.dp, vertical = 8.dp),
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(10.dp),
+  ) {
+    GlassIconButton(
+      icon = Icons.AutoMirrored.Outlined.ArrowBack,
+      contentDescription = stringResource(R.string.action_back),
+      onClick = onBack,
+    )
+    Text(
+      text = title,
+      style = MaterialTheme.typography.titleSmall,
+      color = tokens.ink,
+    )
+  }
 }
 
 @Composable
 private fun StateBanners(state: SessionSnapshot, onReconnect: () -> Unit) {
+  val tokens = LocalLiveGlass.current
+  val status = LocalSessionStatusColors.current
   when (state.phase) {
     SessionPhase.CONNECTING -> {
       if (state.loadingTotal > 0) {
@@ -567,12 +623,14 @@ private fun StateBanners(state: SessionSnapshot, onReconnect: () -> Unit) {
               (state.loadingReceived.toFloat() / state.loadingTotal.toFloat()).coerceIn(0f, 1f)
             },
             modifier = Modifier.fillMaxWidth(),
+            color = tokens.primary,
+            trackColor = tokens.hairline,
           )
           Spacer(Modifier.height(4.dp))
           Text(
             text = stringResource(R.string.status_syncing, state.loadingReceived, state.loadingTotal),
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = tokens.muted,
           )
         }
       } else {
@@ -589,8 +647,8 @@ private fun StateBanners(state: SessionSnapshot, onReconnect: () -> Unit) {
     SessionPhase.RECONNECTING -> {
       Banner(
         text = stringResource(R.string.detail_reconnecting_banner),
-        container = MaterialTheme.colorScheme.tertiaryContainer,
-        content = MaterialTheme.colorScheme.onTertiaryContainer,
+        container = status.working.copy(alpha = 0.14f),
+        content = status.workingText,
         actionLabel = null,
         onAction = {},
       )
@@ -601,8 +659,8 @@ private fun StateBanners(state: SessionSnapshot, onReconnect: () -> Unit) {
           R.string.detail_error_banner,
           state.endedReason ?: stringResource(R.string.error_generic),
         ),
-        container = MaterialTheme.colorScheme.errorContainer,
-        content = MaterialTheme.colorScheme.onErrorContainer,
+        container = status.error.copy(alpha = 0.14f),
+        content = status.errorText,
         actionLabel = stringResource(R.string.action_reconnect),
         onAction = onReconnect,
       )
@@ -610,8 +668,8 @@ private fun StateBanners(state: SessionSnapshot, onReconnect: () -> Unit) {
     SessionPhase.ENDED -> {
       Banner(
         text = stringResource(R.string.detail_ended_banner, state.endedReason ?: ""),
-        container = MaterialTheme.colorScheme.surfaceContainerHighest,
-        content = MaterialTheme.colorScheme.onSurface,
+        container = tokens.glass,
+        content = tokens.muted,
         actionLabel = stringResource(R.string.action_reconnect),
         onAction = onReconnect,
       )
@@ -628,13 +686,15 @@ private fun Banner(
   actionLabel: String?,
   onAction: () -> Unit,
 ) {
+  val tokens = LocalLiveGlass.current
   Surface(
     modifier = Modifier
       .fillMaxWidth()
       .padding(horizontal = 16.dp, vertical = 8.dp),
-    shape = MaterialTheme.shapes.large,
+    shape = LiveGlassShapes.Room,
     color = container,
     contentColor = content,
+    border = BorderStroke(1.dp, tokens.edge),
   ) {
     Row(
       modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
@@ -650,18 +710,20 @@ private fun Banner(
   }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SessionMeta(state: SessionSnapshot) {
-  Row(
+  FlowRow(
     modifier = Modifier
       .fillMaxWidth()
-      .horizontalScroll(rememberScrollState())
       .padding(horizontal = 16.dp, vertical = 4.dp),
-    horizontalArrangement = Arrangement.spacedBy(8.dp),
-    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(5.dp),
+    verticalArrangement = Arrangement.spacedBy(5.dp),
   ) {
     MetaChip(state.modelName ?: stringResource(R.string.detail_model_unknown))
-    state.contextPercent?.let { MetaChip("$it%") }
+    state.contextPercent?.let {
+      MetaChip(stringResource(R.string.sessions_context_percent, it))
+    }
     if (state.participantCount > 0) {
       MetaChip(
         pluralStringResource(
@@ -681,14 +743,16 @@ private fun SessionMeta(state: SessionSnapshot) {
 
 @Composable
 private fun MetaChip(text: String) {
+  val tokens = LocalLiveGlass.current
   Surface(
-    shape = CircleShape,
-    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    shape = LiveGlassShapes.Pill,
+    color = tokens.glassInset,
+    contentColor = tokens.muted,
+    border = BorderStroke(1.dp, tokens.hairline),
   ) {
     Text(
       text = text,
-      modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+      modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp),
       style = MaterialTheme.typography.labelSmall,
       maxLines = 1,
     )
@@ -713,11 +777,13 @@ private fun TranscriptRow(item: TranscriptItem) {
 
 @Composable
 private fun UserBubble(item: UserMessageItem) {
+  val tokens = LocalLiveGlass.current
   Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
     Surface(
-      shape = MaterialTheme.shapes.large,
-      color = MaterialTheme.colorScheme.primaryContainer,
-      contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+      shape = LiveGlassShapes.Hero,
+      color = tokens.primary.copy(alpha = 0.13f),
+      contentColor = tokens.ink,
+      border = BorderStroke(1.dp, tokens.edge),
       modifier = Modifier.fillMaxWidth(0.86f),
     ) {
       Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
@@ -725,7 +791,7 @@ private fun UserBubble(item: UserMessageItem) {
           text = item.from?.let { stringResource(R.string.transcript_guest, it) }
             ?: stringResource(R.string.transcript_you),
           style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f),
+          color = tokens.muted,
         )
         if (item.text.isNotBlank()) {
           SelectionContainer {
@@ -737,6 +803,7 @@ private fun UserBubble(item: UserMessageItem) {
           Text(
             text = pluralStringResource(R.plurals.transcript_images, item.imageCount, item.imageCount),
             style = MaterialTheme.typography.labelSmall,
+            color = tokens.muted,
           )
         }
       }
@@ -752,30 +819,38 @@ private fun AssistantBubble(
   model: String?,
 ) {
   var thinkingOpen by remember { mutableStateOf(false) }
+  val tokens = LocalLiveGlass.current
   Row(modifier = Modifier.fillMaxWidth()) {
     Surface(
-      shape = MaterialTheme.shapes.large,
-      color = MaterialTheme.colorScheme.surfaceContainerHigh,
+      shape = LiveGlassShapes.Hero,
+      color = tokens.glass,
+      contentColor = tokens.ink,
+      border = BorderStroke(1.dp, tokens.edge),
       modifier = Modifier.fillMaxWidth(0.94f),
     ) {
       Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
           Text(
             text = stringResource(R.string.transcript_assistant),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = tokens.primary,
           )
           if (model != null) {
             Text(
               text = model,
-              style = MaterialTheme.typography.labelSmall,
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
+              style = CodeTextStyle,
+              color = tokens.muted,
               maxLines = 1,
               overflow = TextOverflow.Ellipsis,
             )
           }
           if (streaming) {
-            CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 2.dp)
+            CircularProgressIndicator(
+              modifier = Modifier.size(12.dp),
+              strokeWidth = 2.dp,
+              color = tokens.primary,
+            )
           }
         }
         if (thinking.isNotBlank()) {
@@ -789,13 +864,17 @@ private fun AssistantBubble(
               modifier = Modifier.size(16.dp),
             )
             Spacer(Modifier.width(4.dp))
-            Text(stringResource(R.string.transcript_thinking), style = MaterialTheme.typography.labelSmall)
+            Text(
+              stringResource(R.string.transcript_thinking),
+              style = MaterialTheme.typography.labelSmall,
+              color = tokens.muted,
+            )
           }
           AnimatedVisibility(visible = thinkingOpen) {
             Text(
               text = thinking,
               style = MaterialTheme.typography.bodySmall,
-              color = MaterialTheme.colorScheme.onSurfaceVariant,
+              color = tokens.muted,
               modifier = Modifier.padding(bottom = 4.dp),
             )
           }
@@ -813,90 +892,103 @@ private fun AssistantBubble(
 @Composable
 private fun ToolCard(item: ToolCallItem) {
   var expanded by remember { mutableStateOf(false) }
-  Card(
+  val tokens = LocalLiveGlass.current
+  val status = LocalSessionStatusColors.current
+  Surface(
     modifier = Modifier
       .fillMaxWidth()
-      .animateContentSize(),
-    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+      .animateContentSize()
+      .clickable { expanded = !expanded },
+    shape = LiveGlassShapes.Room,
+    color = tokens.glass,
+    contentColor = tokens.ink,
+    border = BorderStroke(1.dp, tokens.edge),
   ) {
-      Column(modifier = Modifier.padding(12.dp)) {
-        Row(
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-          Icon(
-            Icons.Outlined.Build,
-            contentDescription = null,
+    Column(modifier = Modifier.padding(12.dp)) {
+      Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+      ) {
+        Icon(
+          Icons.Outlined.Build,
+          contentDescription = null,
+          modifier = Modifier.size(16.dp),
+          tint = tokens.muted,
+        )
+        Text(
+          text = item.toolName,
+          style = MaterialTheme.typography.labelLarge,
+          fontWeight = FontWeight.SemiBold,
+          modifier = Modifier.weight(1f),
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
+        )
+        when (item.status) {
+          ToolStatus.RUNNING -> CircularProgressIndicator(
+            modifier = Modifier.size(14.dp),
+            strokeWidth = 2.dp,
+            color = status.working,
+          )
+          ToolStatus.DONE -> Icon(
+            Icons.Outlined.CheckCircle,
+            contentDescription = stringResource(R.string.tool_done),
             modifier = Modifier.size(16.dp),
-            tint = MaterialTheme.colorScheme.tertiary,
+            tint = status.live,
           )
-          Text(
-            text = item.toolName,
-            style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier.weight(1f),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-          )
-          when (item.status) {
-            ToolStatus.RUNNING -> CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
-            ToolStatus.DONE -> Icon(
-              Icons.Outlined.CheckCircle,
-              contentDescription = stringResource(R.string.tool_done),
-              modifier = Modifier.size(16.dp),
-              tint = MaterialTheme.colorScheme.primary,
-            )
-            ToolStatus.ERROR -> Icon(
-              Icons.Outlined.Warning,
-              contentDescription = stringResource(R.string.tool_error),
-              modifier = Modifier.size(16.dp),
-              tint = MaterialTheme.colorScheme.error,
-            )
-          }
-          IconButton(onClick = { expanded = !expanded }, modifier = Modifier.size(28.dp)) {
-            Icon(
-              if (expanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
-              contentDescription = null,
-              modifier = Modifier.size(18.dp),
-            )
-          }
-        }
-        if (item.arguments.isNotBlank()) {
-          Spacer(Modifier.height(4.dp))
-          Text(
-            text = item.arguments,
-            style = CodeTextStyle,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = if (expanded) Int.MAX_VALUE else 2,
-            overflow = TextOverflow.Ellipsis,
+          ToolStatus.ERROR -> Icon(
+            Icons.Outlined.Warning,
+            contentDescription = stringResource(R.string.tool_error),
+            modifier = Modifier.size(16.dp),
+            tint = status.error,
           )
         }
-        if (expanded && !item.output.isNullOrBlank()) {
-          Spacer(Modifier.height(8.dp))
-          Surface(
-            shape = MaterialTheme.shapes.small,
-            color = MaterialTheme.colorScheme.surfaceVariant,
-          ) {
-            SelectionContainer {
-              Text(
-                text = item.output.orEmpty(),
-                style = CodeTextStyle,
-                modifier = Modifier
-                  .fillMaxWidth()
-                  .padding(8.dp),
-              )
-            }
+        Icon(
+          if (expanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
+          contentDescription = null,
+          modifier = Modifier.size(18.dp),
+          tint = tokens.muted,
+        )
+      }
+      if (item.arguments.isNotBlank()) {
+        Spacer(Modifier.height(4.dp))
+        Text(
+          text = item.arguments,
+          style = CodeTextStyle,
+          color = tokens.muted,
+          maxLines = if (expanded) Int.MAX_VALUE else 2,
+          overflow = TextOverflow.Ellipsis,
+        )
+      }
+      if (expanded && !item.output.isNullOrBlank()) {
+        Spacer(Modifier.height(8.dp))
+        Surface(
+          shape = MaterialTheme.shapes.small,
+          color = tokens.glassInset,
+          border = BorderStroke(1.dp, tokens.hairline),
+        ) {
+          SelectionContainer {
+            Text(
+              text = item.output.orEmpty(),
+              style = CodeTextStyle,
+              modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            )
           }
         }
       }
+    }
   }
 }
 
 @Composable
 private fun NoticeRow(item: NoticeItem) {
+  val status = LocalSessionStatusColors.current
+  val tokens = LocalLiveGlass.current
   val color = when (item.level) {
-    NoticeLevel.ERROR -> MaterialTheme.colorScheme.error
-    NoticeLevel.WARNING -> MaterialTheme.colorScheme.tertiary
-    NoticeLevel.INFO -> MaterialTheme.colorScheme.onSurfaceVariant
+    NoticeLevel.ERROR -> status.errorText
+    NoticeLevel.WARNING -> status.waitingText
+    NoticeLevel.INFO -> tokens.muted
   }
   Text(
     text = item.text,
@@ -910,15 +1002,17 @@ private fun NoticeRow(item: NoticeItem) {
 
 @Composable
 private fun SummaryRow(item: SummaryItem) {
+  val tokens = LocalLiveGlass.current
   Surface(
     modifier = Modifier.fillMaxWidth(),
-    shape = MaterialTheme.shapes.small,
-    color = MaterialTheme.colorScheme.surfaceVariant,
+    shape = LiveGlassShapes.Room,
+    color = tokens.glassInset,
+    border = BorderStroke(1.dp, tokens.hairline),
   ) {
     Text(
       text = item.text,
       style = MaterialTheme.typography.labelSmall,
-      color = MaterialTheme.colorScheme.onSurfaceVariant,
+      color = tokens.muted,
       modifier = Modifier.padding(10.dp),
     )
   }
@@ -937,17 +1031,21 @@ private fun Composer(
   listening: Boolean,
   voiceEnabled: Boolean,
 ) {
+  val tokens = LocalLiveGlass.current
+  val status = LocalSessionStatusColors.current
   Surface(
-    tonalElevation = 3.dp,
-    color = MaterialTheme.colorScheme.surfaceContainer,
+    shape = LiveGlassShapes.Composer,
+    color = tokens.glassStrong,
+    contentColor = tokens.ink,
+    border = BorderStroke(1.dp, tokens.edge),
+    shadowElevation = 12.dp,
   ) {
     Row(
       modifier = Modifier
         .fillMaxWidth()
-        .navigationBarsPadding()
-        .padding(horizontal = 12.dp, vertical = 8.dp),
+        .padding(horizontal = 8.dp, vertical = 7.dp),
       verticalAlignment = Alignment.Bottom,
-      horizontalArrangement = Arrangement.spacedBy(8.dp),
+      horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
       OutlinedTextField(
         value = draft,
@@ -961,10 +1059,27 @@ private fun Composer(
               !enabled -> stringResource(R.string.error_not_live)
               else -> stringResource(R.string.detail_composer_hint)
             },
+            style = MaterialTheme.typography.bodyMedium,
           )
         },
         maxLines = 5,
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = LiveGlassShapes.Room,
+        textStyle = MaterialTheme.typography.bodyMedium,
+        colors = OutlinedTextFieldDefaults.colors(
+          focusedTextColor = tokens.ink,
+          unfocusedTextColor = tokens.ink,
+          disabledTextColor = tokens.muted,
+          focusedContainerColor = Color.Transparent,
+          unfocusedContainerColor = Color.Transparent,
+          disabledContainerColor = Color.Transparent,
+          focusedBorderColor = tokens.primary.copy(alpha = 0.7f),
+          unfocusedBorderColor = Color.Transparent,
+          disabledBorderColor = Color.Transparent,
+          cursorColor = tokens.primary,
+          focusedPlaceholderColor = tokens.muted,
+          unfocusedPlaceholderColor = tokens.muted,
+          disabledPlaceholderColor = tokens.muted,
+        ),
         trailingIcon = {
           IconButton(onClick = onVoice, enabled = enabled && voiceEnabled) {
             Icon(
@@ -972,7 +1087,7 @@ private fun Composer(
               contentDescription = stringResource(
                 if (listening) R.string.voice_stop else R.string.voice_start,
               ),
-              tint = if (listening) MaterialTheme.colorScheme.error else LocalContentColor.current,
+              tint = if (listening) status.error else tokens.muted,
             )
           }
         },
@@ -982,21 +1097,30 @@ private fun Composer(
           onClick = onStop,
           modifier = Modifier
             .size(48.dp)
-            .background(MaterialTheme.colorScheme.errorContainer, CircleShape),
+            .background(status.error.copy(alpha = 0.16f), CircleShape),
         ) {
           Icon(
             Icons.Outlined.Clear,
             contentDescription = stringResource(R.string.action_stop),
-            tint = MaterialTheme.colorScheme.onErrorContainer,
+            tint = status.errorText,
           )
         }
       }
       IconButton(
         onClick = onSend,
         enabled = enabled && draft.isNotBlank(),
-        modifier = Modifier.size(48.dp),
+        modifier = Modifier
+          .size(48.dp)
+          .background(
+            if (enabled && draft.isNotBlank()) tokens.primary else tokens.hairline,
+            CircleShape,
+          ),
       ) {
-        Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = stringResource(R.string.action_send))
+        Icon(
+          Icons.AutoMirrored.Outlined.Send,
+          contentDescription = stringResource(R.string.action_send),
+          tint = if (enabled && draft.isNotBlank()) tokens.onPrimary else tokens.muted,
+        )
       }
     }
   }
@@ -1007,27 +1131,46 @@ private fun SubagentBar(
   agents: List<SubagentInfo>,
   onClick: () -> Unit,
 ) {
+  val tokens = LocalLiveGlass.current
+  val status = LocalSessionStatusColors.current
   Surface(
     modifier = Modifier
       .fillMaxWidth()
       .padding(horizontal = 16.dp, vertical = 2.dp)
       .clickable(onClick = onClick),
-    shape = MaterialTheme.shapes.large,
-    color = MaterialTheme.colorScheme.surfaceContainer,
+    shape = LiveGlassShapes.Room,
+    color = tokens.glass,
+    border = BorderStroke(1.dp, tokens.edge),
   ) {
     Row(
-      modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+      modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
       verticalAlignment = Alignment.CenterVertically,
       horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-      Icon(
-        Icons.Outlined.AccountCircle,
-        contentDescription = null,
-        modifier = Modifier.size(20.dp),
-        tint = MaterialTheme.colorScheme.tertiary,
-      )
+      Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        agents.take(2).forEach { agent ->
+          val color = if (agent.status == SubagentStatus.RUNNING) status.working else status.ended
+          Box(
+            modifier = Modifier
+              .size(26.dp)
+              .background(color.copy(alpha = 0.16f), CircleShape),
+            contentAlignment = Alignment.Center,
+          ) {
+            Text(
+              text = agent.displayName.take(2).uppercase(),
+              style = MaterialTheme.typography.labelSmall,
+              color = color,
+            )
+          }
+        }
+      }
       Column(modifier = Modifier.weight(1f)) {
-        Text(stringResource(R.string.subagents_title), style = MaterialTheme.typography.labelLarge)
+        Text(
+          text = stringResource(R.string.subagents_title),
+          style = MaterialTheme.typography.labelLarge,
+          fontWeight = FontWeight.SemiBold,
+          color = tokens.ink,
+        )
         Text(
           text = stringResource(
             R.string.subagent_summary,
@@ -1035,13 +1178,13 @@ private fun SubagentBar(
             agents.size,
           ),
           style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          color = tokens.muted,
         )
       }
       Icon(
         Icons.AutoMirrored.Outlined.KeyboardArrowRight,
         contentDescription = null,
-        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        tint = tokens.muted,
       )
     }
   }
@@ -1053,49 +1196,112 @@ private fun SubagentsSheet(
   onDismiss: () -> Unit,
   onView: (SubagentInfo) -> Unit,
 ) {
-  ModalBottomSheet(onDismissRequest = onDismiss) {
+  val tokens = LocalLiveGlass.current
+  ModalBottomSheet(
+    onDismissRequest = onDismiss,
+    shape = LiveGlassShapes.Sheet,
+    containerColor = tokens.sheetOpaque,
+    contentColor = tokens.ink,
+  ) {
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-      Text(stringResource(R.string.subagents_title), style = MaterialTheme.typography.titleMedium)
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+      ) {
+        Text(
+          text = stringResource(R.string.subagents_title),
+          style = MaterialTheme.typography.titleMedium,
+          color = tokens.ink,
+        )
+        Text(
+          text = stringResource(
+            R.string.subagent_summary,
+            agents.count { it.status == SubagentStatus.RUNNING },
+            agents.size,
+          ),
+          style = MaterialTheme.typography.labelSmall,
+          color = tokens.muted,
+        )
+      }
+      Spacer(Modifier.height(12.dp))
       if (agents.isEmpty()) {
         Text(
           text = stringResource(R.string.subagent_transcript_empty),
           style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          color = tokens.muted,
           modifier = Modifier.padding(vertical = 16.dp),
         )
       } else {
-        LazyColumn(modifier = Modifier.heightIn(max = 520.dp)) {
+        LazyColumn(
+          modifier = Modifier.heightIn(max = 520.dp),
+          verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
           items(agents, key = { it.id }, contentType = { "subagent" }) { agent ->
-            Row(
+            val color = subagentStatusColor(agent.status)
+            Surface(
               modifier = Modifier
                 .fillMaxWidth()
-                .clickable(enabled = agent.hasSessionFile) { onView(agent) }
-                .padding(vertical = 10.dp),
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(10.dp),
+                .clickable(enabled = agent.hasSessionFile) { onView(agent) },
+              shape = LiveGlassShapes.Room,
+              color = tokens.glass,
+              border = BorderStroke(1.dp, tokens.edge),
             ) {
-              Box(
-                modifier = Modifier
-                  .size(9.dp)
-                  .background(subagentStatusColor(agent.status), CircleShape),
-              )
-              Column(modifier = Modifier.weight(1f)) {
-                Text(agent.displayName, style = MaterialTheme.typography.bodyLarge)
-                Text(
-                  text = stringResource(subagentStatusRes(agent.status)) +
-                    if (!agent.hasSessionFile) " · no transcript" else "",
-                  style = MaterialTheme.typography.labelSmall,
-                  color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-              }
-              TextButton(
-                onClick = { onView(agent) },
-                enabled = agent.hasSessionFile,
+              Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
               ) {
-                Text(stringResource(R.string.subagent_view))
+                Box(
+                  modifier = Modifier
+                    .size(36.dp)
+                    .background(color.copy(alpha = 0.14f), CircleShape),
+                  contentAlignment = Alignment.Center,
+                ) {
+                  Text(
+                    text = agent.displayName.take(2).uppercase(),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = color,
+                  )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                  Text(
+                    text = agent.displayName,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = tokens.ink,
+                  )
+                  Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                  ) {
+                    Box(
+                      modifier = Modifier
+                        .size(8.dp)
+                        .background(color, CircleShape),
+                    )
+                    Text(
+                      text = stringResource(subagentStatusRes(agent.status)),
+                      style = MaterialTheme.typography.labelSmall,
+                      color = tokens.muted,
+                    )
+                  }
+                }
+                if (agent.hasSessionFile) {
+                  TextButton(onClick = { onView(agent) }) {
+                    Text(
+                      text = stringResource(R.string.subagent_view),
+                      color = tokens.primary,
+                    )
+                  }
+                } else {
+                  Text(
+                    text = stringResource(R.string.subagent_no_log),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = tokens.muted,
+                  )
+                }
               }
             }
-            HorizontalDivider()
           }
         }
       }
@@ -1113,50 +1319,76 @@ private fun AgentTranscriptDialog(
   onRefresh: () -> Unit,
   onDismiss: () -> Unit,
 ) {
+  val tokens = LocalLiveGlass.current
+  val color = subagentStatusColor(agent.status)
   Dialog(
     onDismissRequest = onDismiss,
     properties = DialogProperties(usePlatformDefaultWidth = false),
   ) {
     Surface(
       modifier = Modifier
-        .fillMaxWidth(0.94f)
-        .fillMaxHeight(0.82f),
-      shape = MaterialTheme.shapes.extraLarge,
-      color = MaterialTheme.colorScheme.surface,
+        .fillMaxWidth()
+        .padding(horizontal = 14.dp)
+        .fillMaxHeight(0.86f),
+      shape = LiveGlassShapes.Dialog,
+      color = tokens.sheetOpaque,
+      contentColor = tokens.ink,
+      border = BorderStroke(1.dp, tokens.edge),
+      shadowElevation = 24.dp,
     ) {
       Column {
         Row(
-          modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+          modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp),
           verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
           Column(modifier = Modifier.weight(1f)) {
-            Text(agent.displayName, style = MaterialTheme.typography.titleMedium)
             Text(
-              text = stringResource(subagentStatusRes(agent.status)),
-              style = MaterialTheme.typography.labelSmall,
-              color = subagentStatusColor(agent.status),
+              text = agent.displayName,
+              style = MaterialTheme.typography.titleMedium,
+              color = tokens.ink,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis,
             )
-          }
-          IconButton(onClick = onDismiss) {
-            Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.action_close))
+            Row(
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+              Box(
+                modifier = Modifier
+                  .size(8.dp)
+                  .background(color, CircleShape),
+              )
+              Text(
+                text = stringResource(subagentStatusRes(agent.status)),
+                style = MaterialTheme.typography.labelSmall,
+                color = tokens.muted,
+              )
+            }
           }
         }
-        if (loading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        HorizontalDivider(color = tokens.hairline)
+        if (loading) {
+          LinearProgressIndicator(
+            modifier = Modifier.fillMaxWidth(),
+            color = tokens.primary,
+            trackColor = tokens.hairline,
+          )
+        }
         error?.let {
           Text(
             text = it,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp),
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.error,
+            color = LocalSessionStatusColors.current.errorText,
           )
         }
         if (items.isEmpty() && !loading && error == null) {
           Text(
             text = stringResource(R.string.subagent_transcript_empty),
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(18.dp),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = tokens.muted,
           )
         } else {
           LazyColumn(
@@ -1169,14 +1401,28 @@ private fun AgentTranscriptDialog(
             }
           }
         }
+        HorizontalDivider(color = tokens.hairline)
         Row(
-          modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+          modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
           horizontalArrangement = Arrangement.End,
+          verticalAlignment = Alignment.CenterVertically,
         ) {
-          TextButton(onClick = onRefresh, enabled = !loading) {
+          TextButton(
+            onClick = onRefresh,
+            enabled = !loading,
+            colors = ButtonDefaults.textButtonColors(contentColor = tokens.primary),
+          ) {
             Text(stringResource(R.string.subagent_transcript_refresh))
           }
-          TextButton(onClick = onDismiss) {
+          Spacer(Modifier.width(6.dp))
+          Button(
+            onClick = onDismiss,
+            shape = LiveGlassShapes.Pill,
+            colors = ButtonDefaults.buttonColors(
+              containerColor = tokens.primary,
+              contentColor = tokens.onPrimary,
+            ),
+          ) {
             Text(stringResource(R.string.action_close))
           }
         }
@@ -1194,78 +1440,129 @@ private fun subagentStatusRes(status: SubagentStatus): Int = when (status) {
 }
 
 @Composable
-private fun subagentStatusColor(status: SubagentStatus): Color = when (status) {
-  SubagentStatus.RUNNING -> MaterialTheme.colorScheme.primary
-  SubagentStatus.IDLE -> MaterialTheme.colorScheme.onSurfaceVariant
-  SubagentStatus.PARKED -> MaterialTheme.colorScheme.tertiary
-  SubagentStatus.ABORTED -> MaterialTheme.colorScheme.error
+private fun subagentStatusColor(status: SubagentStatus): Color {
+  val colors = LocalSessionStatusColors.current
+  return when (status) {
+    SubagentStatus.RUNNING -> colors.working
+    SubagentStatus.IDLE -> colors.ended
+    SubagentStatus.PARKED -> colors.working
+    SubagentStatus.ABORTED -> colors.error
+  }
 }
 
 @Composable
 private fun TodoSheet(todos: TodoProgress, onDismiss: () -> Unit) {
-  ModalBottomSheet(onDismissRequest = onDismiss) {
+  val tokens = LocalLiveGlass.current
+  val colors = LocalSessionStatusColors.current
+  ModalBottomSheet(
+    onDismissRequest = onDismiss,
+    shape = LiveGlassShapes.Sheet,
+    containerColor = tokens.sheetOpaque,
+    contentColor = tokens.ink,
+  ) {
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
       Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
       ) {
-        Text(stringResource(R.string.todo_all_title), style = MaterialTheme.typography.titleMedium)
         Text(
-          text = "${todos.completed}/${todos.total}",
-          style = MaterialTheme.typography.labelMedium,
-          color = MaterialTheme.colorScheme.primary,
+          text = stringResource(R.string.todo_all_title),
+          style = MaterialTheme.typography.titleMedium,
+          color = tokens.ink,
         )
+        Surface(
+          shape = LiveGlassShapes.Pill,
+          color = tokens.primary.copy(alpha = 0.13f),
+          contentColor = colors.workingText,
+        ) {
+          Text(
+            text = "${todos.completed}/${todos.total}",
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.labelMedium,
+          )
+        }
       }
-      LazyColumn(modifier = Modifier.heightIn(max = 560.dp)) {
+      Spacer(Modifier.height(10.dp))
+      LazyColumn(
+        modifier = Modifier.heightIn(max = 560.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+      ) {
         items(
           items = todos.tasks,
           key = { "${it.phase}|${it.content}" },
           contentType = { "todo" },
         ) { task ->
-          Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 9.dp),
-            verticalAlignment = Alignment.Top,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+          val color = todoStatusColor(task.status)
+          val completed = task.status == TodoStatus.COMPLETED ||
+            task.status == TodoStatus.ABANDONED
+          Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = LiveGlassShapes.Room,
+            color = tokens.glass,
+            border = BorderStroke(
+              1.dp,
+              if (task.status == TodoStatus.BLOCKED) {
+                colors.blocked.copy(alpha = 0.45f)
+              } else {
+                tokens.edge
+              },
+            ),
           ) {
-            Box(
-              modifier = Modifier
-                .padding(top = 5.dp)
-                .size(9.dp)
-                .background(todoStatusColor(task.status), CircleShape),
-            )
-            Column(modifier = Modifier.weight(1f)) {
-              Text(
-                text = task.content,
-                style = MaterialTheme.typography.bodyMedium,
-                textDecoration = if (
-                  task.status == TodoStatus.COMPLETED || task.status == TodoStatus.ABANDONED
-                ) {
-                  TextDecoration.LineThrough
-                } else {
-                  null
-                },
-              )
-              Text(
-                text = task.phase,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-              )
-              task.blocker?.let {
-                Text(
-                  text = it,
-                  style = MaterialTheme.typography.labelSmall,
-                  color = MaterialTheme.colorScheme.error,
+            Row(
+              modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+              if (task.status == TodoStatus.COMPLETED) {
+                Icon(
+                  Icons.Outlined.CheckCircle,
+                  contentDescription = stringResource(R.string.todo_status_completed),
+                  modifier = Modifier.size(14.dp),
+                  tint = color,
+                )
+              } else {
+                Box(
+                  modifier = Modifier
+                    .size(9.dp)
+                    .background(
+                      if (task.status == TodoStatus.PENDING) {
+                        color.copy(alpha = 0.5f)
+                      } else {
+                        color
+                      },
+                      CircleShape,
+                    ),
                 )
               }
+              Column(modifier = Modifier.weight(1f)) {
+                Text(
+                  text = task.content,
+                  style = MaterialTheme.typography.bodyMedium,
+                  fontWeight = FontWeight.SemiBold,
+                  textDecoration = if (completed) TextDecoration.LineThrough else null,
+                  color = if (completed) tokens.muted else tokens.ink,
+                )
+                Text(
+                  text = task.phase,
+                  style = MaterialTheme.typography.labelSmall,
+                  color = tokens.muted,
+                )
+                task.blocker?.let {
+                  Text(
+                    text = it,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.blocked,
+                  )
+                }
+              }
+              Text(
+                text = todoStatusLabel(task.status),
+                style = MaterialTheme.typography.labelSmall,
+                color = color,
+              )
             }
-            Text(
-              text = todoStatusLabel(task.status),
-              style = MaterialTheme.typography.labelSmall,
-              color = todoStatusColor(task.status),
-            )
           }
-          HorizontalDivider()
         }
       }
       Spacer(Modifier.height(16.dp))
@@ -1274,12 +1571,15 @@ private fun TodoSheet(todos: TodoProgress, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun todoStatusColor(status: TodoStatus): Color = when (status) {
-  TodoStatus.COMPLETED -> MaterialTheme.colorScheme.primary
-  TodoStatus.IN_PROGRESS -> MaterialTheme.colorScheme.tertiary
-  TodoStatus.BLOCKED -> MaterialTheme.colorScheme.error
-  TodoStatus.ABANDONED -> MaterialTheme.colorScheme.outline
-  TodoStatus.PENDING -> MaterialTheme.colorScheme.onSurfaceVariant
+private fun todoStatusColor(status: TodoStatus): Color {
+  val colors = LocalSessionStatusColors.current
+  return when (status) {
+    TodoStatus.COMPLETED -> colors.completed
+    TodoStatus.IN_PROGRESS -> colors.progress
+    TodoStatus.BLOCKED -> colors.blocked
+    TodoStatus.ABANDONED -> colors.ended
+    TodoStatus.PENDING -> colors.pending
+  }
 }
 
 @Composable
@@ -1295,33 +1595,40 @@ private fun todoStatusLabel(status: TodoStatus): String = stringResource(
 
 @Composable
 private fun TodoStrip(todos: TodoProgress, onClick: () -> Unit) {
+  val tokens = LocalLiveGlass.current
   Surface(
-    modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    modifier = Modifier
+      .fillMaxWidth()
+      .clickable(onClick = onClick),
+    shape = LiveGlassShapes.Room,
+    color = tokens.glass,
+    border = BorderStroke(1.dp, tokens.edge),
   ) {
-    Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) {
+    Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp)) {
       Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
           text = "${todos.completed}/${todos.total}",
-          style = MaterialTheme.typography.labelMedium,
-          color = MaterialTheme.colorScheme.primary,
+          style = CodeMediumTextStyle,
+          color = tokens.primary,
         )
         LinearProgressIndicator(
           progress = { if (todos.total == 0) 0f else todos.completed.toFloat() / todos.total },
           modifier = Modifier.weight(1f),
+          color = tokens.primary,
+          trackColor = tokens.hairline,
         )
         Icon(
           Icons.AutoMirrored.Outlined.KeyboardArrowRight,
           contentDescription = stringResource(R.string.todo_view_all),
           modifier = Modifier.size(18.dp),
-          tint = MaterialTheme.colorScheme.onSurfaceVariant,
+          tint = tokens.muted,
         )
       }
       todos.next?.content?.let { current ->
         Text(
           text = current,
-          style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          style = MaterialTheme.typography.bodyMedium,
+          color = tokens.ink,
           maxLines = 1,
           overflow = TextOverflow.Ellipsis,
         )
@@ -1332,20 +1639,24 @@ private fun TodoStrip(todos: TodoProgress, onClick: () -> Unit) {
 
 @Composable
 private fun SessionCommandHint() {
+  val tokens = LocalLiveGlass.current
   Surface(
     modifier = Modifier.fillMaxWidth(),
-    color = MaterialTheme.colorScheme.tertiaryContainer,
-    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+    shape = LiveGlassShapes.Room,
+    color = tokens.primary.copy(alpha = 0.12f),
+    contentColor = tokens.ink,
+    border = BorderStroke(1.dp, tokens.edge),
   ) {
     Row(
       modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
       verticalAlignment = Alignment.CenterVertically,
       horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-      Text("/", style = CodeTextStyle)
+      Text("/", style = CodeMediumTextStyle, color = tokens.primary)
       Text(
         text = stringResource(R.string.session_command_hint),
         style = MaterialTheme.typography.labelMedium,
+        color = tokens.ink,
       )
     }
   }
@@ -1374,18 +1685,22 @@ private fun AskPanel(
   onAnswer: (String?) -> Unit,
 ) {
   var editor by remember(request.requestId) { mutableStateOf(request.prefill.orEmpty()) }
+  val tokens = LocalLiveGlass.current
   Surface(
-    modifier = Modifier
-      .fillMaxWidth()
-      .padding(horizontal = 12.dp, vertical = 6.dp),
-    shape = MaterialTheme.shapes.large,
-    color = MaterialTheme.colorScheme.tertiaryContainer,
-    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+    modifier = Modifier.fillMaxWidth(),
+    shape = LiveGlassShapes.Hero,
+    color = tokens.glass,
+    contentColor = tokens.ink,
+    border = BorderStroke(1.dp, tokens.edge),
   ) {
     Column(modifier = Modifier.padding(14.dp)) {
-      Text(text = request.title, style = MaterialTheme.typography.titleSmall)
+      Text(
+        text = request.title,
+        style = MaterialTheme.typography.titleSmall,
+        color = tokens.ink,
+      )
       request.helpText?.let {
-        Text(text = it, style = MaterialTheme.typography.bodySmall)
+        Text(text = it, style = MaterialTheme.typography.bodySmall, color = tokens.muted)
       }
       Spacer(Modifier.height(8.dp))
       when (request.kind) {
@@ -1394,8 +1709,11 @@ private fun AskPanel(
             val checked = index in request.checkedIndices
             OutlinedButton(
               onClick = { onAnswer(option.label) },
+              shape = LiveGlassShapes.Room,
+              border = BorderStroke(1.dp, tokens.edge),
               colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                containerColor = tokens.glassInset,
+                contentColor = tokens.ink,
               ),
               modifier = Modifier
                 .fillMaxWidth()
@@ -1407,16 +1725,14 @@ private fun AskPanel(
                   style = MaterialTheme.typography.bodyMedium,
                 )
                 option.description?.let {
-                  Text(text = it, style = MaterialTheme.typography.labelSmall)
+                  Text(text = it, style = MaterialTheme.typography.labelSmall, color = tokens.muted)
                 }
               }
             }
           }
           TextButton(
             onClick = { onAnswer(null) },
-            colors = ButtonDefaults.textButtonColors(
-              contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-            ),
+            colors = ButtonDefaults.textButtonColors(contentColor = tokens.muted),
           ) {
             Text(stringResource(R.string.prompt_cancel))
           }
@@ -1428,6 +1744,16 @@ private fun AskPanel(
             modifier = Modifier.fillMaxWidth(),
             placeholder = { Text(stringResource(R.string.prompt_editor_hint)) },
             maxLines = 5,
+            shape = LiveGlassShapes.Room,
+            colors = OutlinedTextFieldDefaults.colors(
+              focusedTextColor = tokens.ink,
+              unfocusedTextColor = tokens.ink,
+              focusedContainerColor = tokens.glassInset,
+              unfocusedContainerColor = tokens.glassInset,
+              focusedBorderColor = tokens.primary.copy(alpha = 0.7f),
+              unfocusedBorderColor = tokens.edge,
+              cursorColor = tokens.primary,
+            ),
           )
           Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1435,13 +1761,18 @@ private fun AskPanel(
           ) {
             TextButton(
               onClick = { onAnswer(null) },
-              colors = ButtonDefaults.textButtonColors(
-                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-              ),
+              colors = ButtonDefaults.textButtonColors(contentColor = tokens.muted),
             ) {
               Text(stringResource(R.string.prompt_cancel))
             }
-            Button(onClick = { onAnswer(editor) }) {
+            Button(
+              onClick = { onAnswer(editor) },
+              shape = LiveGlassShapes.Pill,
+              colors = ButtonDefaults.buttonColors(
+                containerColor = tokens.primary,
+                contentColor = tokens.onPrimary,
+              ),
+            ) {
               Text(stringResource(R.string.prompt_send))
             }
           }

@@ -26,6 +26,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.ompsessionconnect.R
 import com.ompsessionconnect.domain.model.SessionStatus
+import com.ompsessionconnect.ui.theme.LocalSessionStatusColors
+import com.ompsessionconnect.ui.theme.LiveGlassShapes
 
 fun statusLabelRes(status: SessionStatus): Int = when (status) {
   SessionStatus.CONNECTING -> R.string.status_connecting
@@ -42,14 +44,29 @@ fun statusLabelRes(status: SessionStatus): Int = when (status) {
 fun statusLabel(status: SessionStatus): String = stringResource(statusLabelRes(status))
 
 @Composable
-fun statusColor(status: SessionStatus): Color = when (status) {
-  SessionStatus.CONNECTING, SessionStatus.RECONNECTING -> MaterialTheme.colorScheme.tertiary
-  SessionStatus.LIVE -> MaterialTheme.colorScheme.primary
-  SessionStatus.WORKING -> MaterialTheme.colorScheme.tertiary
-  SessionStatus.WAITING_INPUT -> MaterialTheme.colorScheme.error
-  SessionStatus.WATCHING -> MaterialTheme.colorScheme.secondary
-  SessionStatus.ENDED -> MaterialTheme.colorScheme.outline
-  SessionStatus.ERROR -> MaterialTheme.colorScheme.error
+fun statusColor(status: SessionStatus): Color {
+  val colors = LocalSessionStatusColors.current
+  return when (status) {
+    SessionStatus.CONNECTING, SessionStatus.RECONNECTING, SessionStatus.WORKING -> colors.working
+    SessionStatus.LIVE -> colors.live
+    SessionStatus.WAITING_INPUT -> colors.waiting
+    SessionStatus.WATCHING -> colors.watching
+    SessionStatus.ENDED -> colors.ended
+    SessionStatus.ERROR -> colors.error
+  }
+}
+
+@Composable
+fun statusTextColor(status: SessionStatus): Color {
+  val colors = LocalSessionStatusColors.current
+  return when (status) {
+    SessionStatus.CONNECTING, SessionStatus.RECONNECTING, SessionStatus.WORKING -> colors.workingText
+    SessionStatus.LIVE -> colors.liveText
+    SessionStatus.WAITING_INPUT -> colors.waitingText
+    SessionStatus.WATCHING -> colors.watching
+    SessionStatus.ENDED -> colors.ended
+    SessionStatus.ERROR -> colors.errorText
+  }
 }
 
 @Composable
@@ -58,11 +75,12 @@ fun StatusPill(
   modifier: Modifier = Modifier,
 ) {
   val color = statusColor(status)
+  val textColor = statusTextColor(status)
   Surface(
     modifier = modifier,
-    shape = CircleShape,
+    shape = LiveGlassShapes.Pill,
     color = color.copy(alpha = 0.14f),
-    contentColor = color,
+    contentColor = textColor,
   ) {
     Row(
       modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
@@ -70,7 +88,11 @@ fun StatusPill(
       verticalAlignment = Alignment.CenterVertically,
     ) {
       StatusDot(status = status, color = color)
-      Text(text = statusLabel(status), style = MaterialTheme.typography.labelMedium)
+      Text(
+        text = statusLabel(status),
+        style = MaterialTheme.typography.labelMedium,
+        color = textColor,
+      )
     }
   }
 }

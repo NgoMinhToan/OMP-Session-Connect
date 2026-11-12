@@ -8,8 +8,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.ompsessionconnect.domain.repository.SessionRepository
@@ -17,6 +19,7 @@ import com.ompsessionconnect.service.SessionService
 import com.ompsessionconnect.ui.MainNavigation
 import com.ompsessionconnect.ui.settings.SettingsViewModel
 import com.ompsessionconnect.ui.theme.OmpSessionConnectTheme
+import androidx.core.view.WindowCompat
 import com.ompsessionconnect.domain.model.ThemeMode
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -43,11 +46,22 @@ class MainActivity : ComponentActivity() {
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
       }
-      OmpSessionConnectTheme(darkTheme = darkTheme) {
+      OmpSessionConnectTheme(
+        darkTheme = darkTheme,
+        dynamicColor = settings.dynamicColor,
+      ) {
+        val view = LocalView.current
+        SideEffect {
+          WindowCompat.getInsetsController(window, view).apply {
+            isAppearanceLightStatusBars = !darkTheme
+            isAppearanceLightNavigationBars = !darkTheme
+          }
+        }
         MainNavigation(
           openSessionId = openSessionId,
           onOpenConsumed = { openSessionId = null },
           settingsViewModel = settingsViewModel,
+          onExit = { finish() },
         )
       }
     }

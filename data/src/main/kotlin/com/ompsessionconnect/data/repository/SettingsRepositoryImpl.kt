@@ -14,6 +14,8 @@ class SettingsRepositoryImpl @Inject constructor(
 
   override suspend fun setThemeMode(mode: ThemeMode) = store.setThemeMode(mode)
 
+  override suspend fun setDynamicColor(enabled: Boolean) = store.setDynamicColor(enabled)
+
   override suspend fun setNotificationsEnabled(enabled: Boolean) = store.setNotificationsEnabled(enabled)
 
   override suspend fun setNotifyTurnFinished(enabled: Boolean) = store.setNotifyTurnFinished(enabled)
