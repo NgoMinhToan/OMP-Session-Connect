@@ -1,5 +1,14 @@
 package com.ompsessionconnect.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -13,6 +22,8 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -35,6 +46,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -44,6 +56,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalResources
@@ -54,6 +67,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextOverflow
 import com.ompsessionconnect.R
 import com.ompsessionconnect.domain.model.SessionOverview
 import com.ompsessionconnect.domain.model.SessionPhase
@@ -88,6 +102,20 @@ fun HomeShell(
   settingsViewModel: SettingsViewModel,
 ) {
   val tokens = LocalLiveGlass.current
+  val sessionListState = rememberLazyListState()
+  val activityListState = rememberLazyListState()
+  val settingsListState = rememberLazyListState()
+  val activeListState = when (selectedTab) {
+    HomeTab.SESSIONS -> sessionListState
+    HomeTab.ACTIVITY -> activityListState
+    HomeTab.SETTINGS -> settingsListState
+  }
+  val collapsed by remember(activeListState) {
+    derivedStateOf {
+      activeListState.firstVisibleItemIndex > 0 ||
+        activeListState.firstVisibleItemScrollOffset > 8
+    }
+  }
   val resources = LocalResources.current
   val genericError = stringResource(R.string.error_generic)
   val sessionClosedText = stringResource(R.string.session_closed)
@@ -120,14 +148,13 @@ fun HomeShell(
       containerColor = Color.Transparent,
       contentWindowInsets = WindowInsets(0, 0, 0, 0),
       topBar = {
-        HomeTopBar(
+        HomeHeader(
           tab = selectedTab,
           sessions = sessions,
+          collapsed = collapsed,
           menuOpen = menuOpen,
           onMenuOpen = { menuOpen = true },
           onMenuDismiss = { menuOpen = false },
-          onSettings = { onTabSelected(HomeTab.SETTINGS) },
-          onAddLink = { showAddDialog = true },
           onCloseEnded = {
             menuOpen = false
             closedEndedCount = endedCount
@@ -143,25 +170,42 @@ fun HomeShell(
       },
       snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
-      when (selectedTab) {
-        HomeTab.SESSIONS -> SessionsScreen(
-          sessions = sessions,
-          onOpenSession = onOpenSession,
-          onScan = onScan,
-          onAddLink = { showAddDialog = true },
-          appViewModel = appViewModel,
-          modifier = Modifier.padding(padding),
-        )
-        HomeTab.ACTIVITY -> ActivityScreen(
-          sessions = sessions,
-          events = activityEvents,
-          onOpenSession = onOpenSession,
-          modifier = Modifier.padding(padding),
-        )
-        HomeTab.SETTINGS -> SettingsScreen(
-          viewModel = settingsViewModel,
-          modifier = Modifier.padding(padding),
-        )
+      AnimatedContent(
+        targetState = selectedTab,
+        transitionSpec = {
+          (
+            fadeIn(tween(210, delayMillis = 90)) +
+              scaleIn(tween(210, delayMillis = 90), initialScale = 0.96f)
+            ) togetherWith (
+            fadeOut(tween(90)) +
+              scaleOut(tween(90), targetScale = 1.02f)
+            )
+        },
+        label = "home-tab-content",
+      ) { tab ->
+        when (tab) {
+          HomeTab.SESSIONS -> SessionsScreen(
+            sessions = sessions,
+            onOpenSession = onOpenSession,
+            onScan = onScan,
+            onAddLink = { showAddDialog = true },
+            appViewModel = appViewModel,
+            listState = sessionListState,
+            modifier = Modifier.padding(padding),
+          )
+          HomeTab.ACTIVITY -> ActivityScreen(
+            sessions = sessions,
+            events = activityEvents,
+            onOpenSession = onOpenSession,
+            listState = activityListState,
+            modifier = Modifier.padding(padding),
+          )
+          HomeTab.SETTINGS -> SettingsScreen(
+            viewModel = settingsViewModel,
+            listState = settingsListState,
+            modifier = Modifier.padding(padding),
+          )
+        }
       }
     }
 
@@ -216,113 +260,133 @@ fun HomeShell(
 }
 
 @Composable
-private fun HomeTopBar(
+private fun HomeHeader(
   tab: HomeTab,
   sessions: List<SessionOverview>?,
+  collapsed: Boolean,
   menuOpen: Boolean,
   onMenuOpen: () -> Unit,
   onMenuDismiss: () -> Unit,
-  onSettings: () -> Unit,
-  onAddLink: () -> Unit,
   onCloseEnded: () -> Unit,
 ) {
   val tokens = LocalLiveGlass.current
   val status = LocalSessionStatusColors.current
+  val titleSize by animateFloatAsState(
+    targetValue = if (collapsed) 22f else 28f,
+    animationSpec = tween(180),
+    label = "header-title-size",
+  )
+  val descriptionHeight by animateDpAsState(
+    targetValue = if (collapsed) 0.dp else 22.dp,
+    animationSpec = tween(180),
+    label = "header-description-height",
+  )
+  val descriptionAlpha by animateFloatAsState(
+    targetValue = if (collapsed) 0f else 1f,
+    animationSpec = tween(150),
+    label = "header-description-alpha",
+  )
+  val title = when (tab) {
+    HomeTab.SESSIONS -> stringResource(R.string.sessions_title)
+    HomeTab.ACTIVITY -> stringResource(R.string.activity_title)
+    HomeTab.SETTINGS -> stringResource(R.string.settings_title)
+  }
   Column(
     modifier = Modifier
       .fillMaxWidth()
       .statusBarsPadding()
-      .padding(start = 20.dp, end = 16.dp, top = 14.dp, bottom = 10.dp),
+      .padding(start = 20.dp, end = 16.dp, top = 10.dp, bottom = 8.dp),
   ) {
-    when (tab) {
-      HomeTab.SESSIONS -> {
-        val list = sessions.orEmpty()
-        val live = list.count {
-          it.status == SessionStatus.LIVE ||
-            it.status == SessionStatus.WORKING ||
-            it.status == SessionStatus.WAITING_INPUT ||
-            it.status == SessionStatus.WATCHING
-        }
-        val attention = list.count { it.needsAttention }
-        Row(verticalAlignment = Alignment.Top) {
-          Column(modifier = Modifier.weight(1f)) {
-            Text(
-              text = stringResource(R.string.sessions_title),
-              style = MaterialTheme.typography.titleLarge,
-              color = tokens.ink,
+    Row(
+      modifier = Modifier
+        .fillMaxWidth()
+        .height(48.dp),
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      Text(
+        text = title,
+        style = MaterialTheme.typography.headlineMedium.copy(
+          fontSize = titleSize.sp,
+          lineHeight = (titleSize * 1.15f).sp,
+        ),
+        color = tokens.ink,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.weight(1f),
+      )
+      if (tab == HomeTab.SESSIONS) {
+        Box {
+          GlassIconButton(
+            icon = Icons.Outlined.MoreVert,
+            contentDescription = stringResource(R.string.action_more),
+            onClick = onMenuOpen,
+          )
+          DropdownMenu(expanded = menuOpen, onDismissRequest = onMenuDismiss) {
+            DropdownMenuItem(
+              text = { Text(stringResource(R.string.sessions_close_ended)) },
+              enabled = (sessions?.count {
+                it.snapshot?.phase == SessionPhase.ENDED ||
+                  it.snapshot?.phase == SessionPhase.FAILED
+              } ?: 0) > 0,
+              onClick = onCloseEnded,
             )
-            Row(
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-              if (live > 0) {
-                Box(
-                  modifier = Modifier
-                    .size(7.dp)
-                    .background(status.live, CircleShape),
-                )
-              }
-              Text(
-                text = if (sessions == null || list.isEmpty()) {
-                  stringResource(R.string.sessions_subtitle)
-                } else {
-                  "${pluralStringResource(R.plurals.sessions_live, live, live)} · " +
-                    "${pluralStringResource(R.plurals.sessions_need_you, attention, attention)} · " +
-                    stringResource(R.string.sessions_stored, list.size)
-                },
-                style = MaterialTheme.typography.labelMedium,
-                color = tokens.muted,
-              )
-            }
-          }
-          Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            GlassIconButton(
-              icon = Icons.Outlined.Settings,
-              contentDescription = stringResource(R.string.settings_title),
-              onClick = onSettings,
-            )
-            GlassIconButton(
-              icon = Icons.Outlined.Add,
-              contentDescription = stringResource(R.string.action_paste_link),
-              onClick = onAddLink,
-            )
-            Box {
-              GlassIconButton(
-                icon = Icons.Outlined.MoreVert,
-                contentDescription = stringResource(R.string.action_more),
-                onClick = onMenuOpen,
-              )
-              DropdownMenu(expanded = menuOpen, onDismissRequest = onMenuDismiss) {
-                DropdownMenuItem(
-                  text = { Text(stringResource(R.string.sessions_close_ended)) },
-                  enabled = (sessions?.count {
-                    it.snapshot?.phase == SessionPhase.ENDED || it.snapshot?.phase == SessionPhase.FAILED
-                  } ?: 0) > 0,
-                  onClick = onCloseEnded,
-                )
-              }
-            }
           }
         }
       }
-      HomeTab.ACTIVITY -> {
-        Text(
-          text = stringResource(R.string.activity_title),
-          style = MaterialTheme.typography.headlineMedium,
-          color = tokens.ink,
-        )
-        Text(
-          text = stringResource(R.string.activity_subtitle),
-          style = MaterialTheme.typography.bodyMedium,
-          color = tokens.muted,
-        )
-      }
-      HomeTab.SETTINGS -> {
-        Text(
-          text = stringResource(R.string.settings_title),
-          style = MaterialTheme.typography.headlineMedium,
-          color = tokens.ink,
-        )
+    }
+    Box(
+      modifier = Modifier
+        .fillMaxWidth()
+        .height(descriptionHeight),
+    ) {
+      if (descriptionAlpha > 0f) {
+        Box(modifier = Modifier.alpha(descriptionAlpha)) {
+          when (tab) {
+            HomeTab.SESSIONS -> {
+              val list = sessions.orEmpty()
+              val live = list.count {
+                it.status == SessionStatus.LIVE ||
+                  it.status == SessionStatus.WORKING ||
+                  it.status == SessionStatus.WAITING_INPUT ||
+                  it.status == SessionStatus.WATCHING
+              }
+              val attention = list.count { it.needsAttention }
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+              ) {
+                if (live > 0) {
+                  Box(
+                    modifier = Modifier
+                      .size(7.dp)
+                      .background(status.live, CircleShape),
+                  )
+                }
+                Text(
+                  text = if (sessions == null || list.isEmpty()) {
+                    stringResource(R.string.sessions_subtitle)
+                  } else {
+                    "${pluralStringResource(R.plurals.sessions_live, live, live)} · " +
+                      "${pluralStringResource(R.plurals.sessions_need_you, attention, attention)} · " +
+                      stringResource(R.string.sessions_stored, list.size)
+                  },
+                  style = MaterialTheme.typography.labelMedium,
+                  color = tokens.muted,
+                  maxLines = 1,
+                  overflow = TextOverflow.Ellipsis,
+                )
+              }
+            }
+            HomeTab.ACTIVITY -> Text(
+              text = stringResource(R.string.activity_subtitle),
+              style = MaterialTheme.typography.bodyMedium,
+              color = tokens.muted,
+              maxLines = 1,
+              overflow = TextOverflow.Ellipsis,
+            )
+            HomeTab.SETTINGS -> Unit
+          }
+        }
       }
     }
   }

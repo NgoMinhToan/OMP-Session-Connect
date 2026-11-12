@@ -1,5 +1,9 @@
 package com.ompsessionconnect.ui
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -50,18 +54,30 @@ fun MainNavigation(
     }
   }
 
-  LiveGlassBackground(modifier = Modifier.fillMaxSize()) {
-    NavDisplay(
-      backStack = backStack,
-      onBack = {
-        if (backStack.size > 1) {
-          backStack.removeLastOrNull()
-        } else {
-          onExit()
-        }
-      },
-      entryProvider = entryProvider {
-        entry<HomeRoute> {
+  NavDisplay(
+    backStack = backStack,
+    transitionSpec = {
+      slideInHorizontally(tween(320)) { width -> width } togetherWith
+        slideOutHorizontally(tween(320)) { width -> -width / 4 }
+    },
+    popTransitionSpec = {
+      slideInHorizontally(tween(320)) { width -> -width / 4 } togetherWith
+        slideOutHorizontally(tween(320)) { width -> width }
+    },
+    predictivePopTransitionSpec = { _ ->
+      slideInHorizontally(tween(320)) { width -> -width / 4 } togetherWith
+        slideOutHorizontally(tween(320)) { width -> width }
+    },
+    onBack = {
+      if (backStack.size > 1) {
+        backStack.removeLastOrNull()
+      } else {
+        onExit()
+      }
+    },
+    entryProvider = entryProvider {
+      entry<HomeRoute> {
+        LiveGlassBackground(modifier = Modifier.fillMaxSize()) {
           HomeShell(
             sessions = sessions,
             selectedTab = selectedTab,
@@ -73,7 +89,9 @@ fun MainNavigation(
             settingsViewModel = settingsViewModel,
           )
         }
-        entry<ScannerRoute> {
+      }
+      entry<ScannerRoute> {
+        LiveGlassBackground(modifier = Modifier.fillMaxSize()) {
           QrScannerScreen(
             appViewModel = appViewModel,
             onBack = { backStack.removeLastOrNull() },
@@ -83,7 +101,9 @@ fun MainNavigation(
             },
           )
         }
-        entry<SessionRoute> { route ->
+      }
+      entry<SessionRoute> { route ->
+        LiveGlassBackground(modifier = Modifier.fillMaxSize()) {
           SessionDetailScreen(
             sessionId = route.sessionId,
             sessions = sessions,
@@ -91,7 +111,7 @@ fun MainNavigation(
             onBack = { backStack.removeLastOrNull() },
           )
         }
-      },
-    )
-  }
+      }
+    },
+  )
 }

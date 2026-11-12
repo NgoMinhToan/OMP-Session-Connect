@@ -37,6 +37,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -85,6 +86,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
@@ -118,6 +120,7 @@ import com.ompsessionconnect.domain.model.UserMessageItem
 import com.ompsessionconnect.ui.AppEvent
 import com.ompsessionconnect.ui.AppViewModel
 import com.ompsessionconnect.ui.components.ConfirmDialog
+import com.ompsessionconnect.ui.components.edgeFade
 import com.ompsessionconnect.ui.components.GlassIconButton
 import com.ompsessionconnect.ui.components.StatusPill
 import com.ompsessionconnect.ui.components.rememberVoiceInput
@@ -498,7 +501,8 @@ private fun SessionDetailContent(
       LazyColumn(
         modifier = Modifier
           .fillMaxWidth()
-          .weight(1f),
+          .weight(1f)
+          .edgeFade(top = 18.dp, bottom = 26.dp),
         state = listState,
         reverseLayout = true,
         contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
@@ -963,7 +967,7 @@ private fun ToolCard(item: ToolCallItem) {
         Spacer(Modifier.height(8.dp))
         Surface(
           shape = MaterialTheme.shapes.small,
-          color = tokens.glassInset,
+          color = Color.Transparent,
           border = BorderStroke(1.dp, tokens.hairline),
         ) {
           SelectionContainer {
@@ -1035,7 +1039,7 @@ private fun Composer(
   val status = LocalSessionStatusColors.current
   Surface(
     shape = LiveGlassShapes.Composer,
-    color = tokens.glassStrong,
+    color = tokens.sheetOpaque,
     contentColor = tokens.ink,
     border = BorderStroke(1.dp, tokens.edge),
     shadowElevation = 12.dp,
@@ -1045,53 +1049,47 @@ private fun Composer(
         .fillMaxWidth()
         .padding(horizontal = 8.dp, vertical = 7.dp),
       verticalAlignment = Alignment.Bottom,
-      horizontalArrangement = Arrangement.spacedBy(6.dp),
+      horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-      OutlinedTextField(
-        value = draft,
-        onValueChange = onDraftChange,
-        modifier = Modifier.weight(1f),
-        enabled = enabled,
-        placeholder = {
+      Box(
+        modifier = Modifier
+          .weight(1f)
+          .padding(horizontal = 6.dp, vertical = 9.dp),
+      ) {
+        if (draft.isEmpty()) {
           Text(
-            when {
+            text = when {
               readOnly -> stringResource(R.string.detail_read_only_hint)
               !enabled -> stringResource(R.string.error_not_live)
               else -> stringResource(R.string.detail_composer_hint)
             },
             style = MaterialTheme.typography.bodyMedium,
+            color = tokens.muted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
           )
-        },
-        maxLines = 5,
-        shape = LiveGlassShapes.Room,
-        textStyle = MaterialTheme.typography.bodyMedium,
-        colors = OutlinedTextFieldDefaults.colors(
-          focusedTextColor = tokens.ink,
-          unfocusedTextColor = tokens.ink,
-          disabledTextColor = tokens.muted,
-          focusedContainerColor = Color.Transparent,
-          unfocusedContainerColor = Color.Transparent,
-          disabledContainerColor = Color.Transparent,
-          focusedBorderColor = tokens.primary.copy(alpha = 0.7f),
-          unfocusedBorderColor = Color.Transparent,
-          disabledBorderColor = Color.Transparent,
-          cursorColor = tokens.primary,
-          focusedPlaceholderColor = tokens.muted,
-          unfocusedPlaceholderColor = tokens.muted,
-          disabledPlaceholderColor = tokens.muted,
-        ),
-        trailingIcon = {
-          IconButton(onClick = onVoice, enabled = enabled && voiceEnabled) {
-            Icon(
-              painterResource(R.drawable.ic_mic),
-              contentDescription = stringResource(
-                if (listening) R.string.voice_stop else R.string.voice_start,
-              ),
-              tint = if (listening) status.error else tokens.muted,
-            )
-          }
-        },
-      )
+        }
+        BasicTextField(
+          value = draft,
+          onValueChange = onDraftChange,
+          enabled = enabled,
+          modifier = Modifier.fillMaxWidth(),
+          textStyle = MaterialTheme.typography.bodyMedium.copy(
+            color = if (enabled) tokens.ink else tokens.muted,
+          ),
+          cursorBrush = SolidColor(tokens.primary),
+          maxLines = 5,
+        )
+      }
+      IconButton(onClick = onVoice, enabled = enabled && voiceEnabled) {
+        Icon(
+          painterResource(R.drawable.ic_mic),
+          contentDescription = stringResource(
+            if (listening) R.string.voice_stop else R.string.voice_start,
+          ),
+          tint = if (listening) status.error else tokens.muted,
+        )
+      }
       if (working && enabled) {
         IconButton(
           onClick = onStop,
@@ -1244,7 +1242,7 @@ private fun SubagentsSheet(
                 .fillMaxWidth()
                 .clickable(enabled = agent.hasSessionFile) { onView(agent) },
               shape = LiveGlassShapes.Room,
-              color = tokens.glass,
+              color = Color.Transparent,
               border = BorderStroke(1.dp, tokens.edge),
             ) {
               Row(
@@ -1499,7 +1497,7 @@ private fun TodoSheet(todos: TodoProgress, onDismiss: () -> Unit) {
           Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = LiveGlassShapes.Room,
-            color = tokens.glass,
+            color = Color.Transparent,
             border = BorderStroke(
               1.dp,
               if (task.status == TodoStatus.BLOCKED) {
@@ -1712,7 +1710,7 @@ private fun AskPanel(
               shape = LiveGlassShapes.Room,
               border = BorderStroke(1.dp, tokens.edge),
               colors = ButtonDefaults.outlinedButtonColors(
-                containerColor = tokens.glassInset,
+                containerColor = Color.Transparent,
                 contentColor = tokens.ink,
               ),
               modifier = Modifier
@@ -1748,8 +1746,8 @@ private fun AskPanel(
             colors = OutlinedTextFieldDefaults.colors(
               focusedTextColor = tokens.ink,
               unfocusedTextColor = tokens.ink,
-              focusedContainerColor = tokens.glassInset,
-              unfocusedContainerColor = tokens.glassInset,
+              focusedContainerColor = Color.Transparent,
+              unfocusedContainerColor = Color.Transparent,
               focusedBorderColor = tokens.primary.copy(alpha = 0.7f),
               unfocusedBorderColor = tokens.edge,
               cursorColor = tokens.primary,

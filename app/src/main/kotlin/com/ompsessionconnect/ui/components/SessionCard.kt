@@ -134,7 +134,7 @@ fun SessionCard(
       1.dp,
       if (state.needsAttention) statusColors.waiting.copy(alpha = 0.55f) else tokens.edge,
     ),
-    shadowElevation = 6.dp,
+    shadowElevation = 0.dp,
   ) {
     Row(
       modifier = Modifier.padding(12.dp),

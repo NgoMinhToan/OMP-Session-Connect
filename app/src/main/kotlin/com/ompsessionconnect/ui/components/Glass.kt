@@ -10,8 +10,17 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.ompsessionconnect.ui.theme.LocalLiveGlass
 
@@ -45,3 +54,43 @@ fun GlassIconButton(
     }
   }
 }
+
+
+/**
+ * Fades the top and bottom of a scrolling layer into the gradient behind it.
+ * Uses an offscreen layer so DstOut only removes this layer's content.
+ */
+fun Modifier.edgeFade(
+  top: Dp = 18.dp,
+  bottom: Dp = 24.dp,
+): Modifier = this
+  .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+  .drawWithContent {
+    drawContent()
+    if (top > 0.dp) {
+      val height = top.toPx().coerceAtMost(size.height / 2f)
+      drawRect(
+        brush = Brush.verticalGradient(
+          colorStops = arrayOf(0f to Color.Black, 1f to Color.Transparent),
+          startY = 0f,
+          endY = height,
+        ),
+        topLeft = Offset.Zero,
+        size = Size(size.width, height),
+        blendMode = BlendMode.DstOut,
+      )
+    }
+    if (bottom > 0.dp) {
+      val height = bottom.toPx().coerceAtMost(size.height / 2f)
+      drawRect(
+        brush = Brush.verticalGradient(
+          colorStops = arrayOf(0f to Color.Transparent, 1f to Color.Black),
+          startY = size.height - height,
+          endY = size.height,
+        ),
+        topLeft = Offset(0f, size.height - height),
+        size = Size(size.width, height),
+        blendMode = BlendMode.DstOut,
+      )
+    }
+  }

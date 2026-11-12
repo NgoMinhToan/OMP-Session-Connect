@@ -2,6 +2,7 @@ package com.ompsessionconnect.ui.activity
 
 import android.text.format.DateUtils
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -29,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -179,6 +182,7 @@ fun ActivityScreen(
   sessions: List<SessionOverview>?,
   events: List<SessionActivityEvent>,
   onOpenSession: (String) -> Unit,
+  listState: LazyListState,
   modifier: Modifier = Modifier,
 ) {
   val tokens = LocalLiveGlass.current
@@ -195,16 +199,17 @@ fun ActivityScreen(
   }
   LazyColumn(
     modifier = modifier.fillMaxSize(),
+    state = listState,
     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 132.dp),
     verticalArrangement = Arrangement.spacedBy(10.dp),
   ) {
     item(key = "summary", contentType = "summary") {
-      Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = LiveGlassShapes.Hero,
-        color = tokens.glass,
-        border = androidx.compose.foundation.BorderStroke(1.dp, tokens.edge),
-        shadowElevation = 10.dp,
+      Box(
+        modifier = Modifier
+          .fillMaxWidth()
+          .clip(LiveGlassShapes.Hero)
+          .background(tokens.glass)
+          .border(1.dp, tokens.edge, LiveGlassShapes.Hero),
       ) {
         Column(modifier = Modifier.padding(20.dp)) {
           Text(

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Button
@@ -61,6 +62,7 @@ import com.ompsessionconnect.ui.theme.LocalSessionStatusColors
 @Composable
 fun SettingsScreen(
   viewModel: SettingsViewModel,
+  listState: LazyListState,
   modifier: Modifier = Modifier,
 ) {
   val tokens = LocalLiveGlass.current
@@ -83,6 +85,7 @@ fun SettingsScreen(
 
   LazyColumn(
     modifier = modifier.fillMaxSize(),
+    state = listState,
     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 28.dp),
     verticalArrangement = Arrangement.spacedBy(10.dp),
   ) {
@@ -208,7 +211,7 @@ private fun SettingsPanel(content: @Composable () -> Unit) {
     shape = LiveGlassShapes.Panel,
     color = tokens.glass,
     border = BorderStroke(1.dp, tokens.edge),
-    shadowElevation = 8.dp,
+    shadowElevation = 0.dp,
   ) {
     Column { content() }
   }

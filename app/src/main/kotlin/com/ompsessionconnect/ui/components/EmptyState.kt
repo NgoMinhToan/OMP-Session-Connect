@@ -50,7 +50,7 @@ fun EmptySessions(
       shape = LiveGlassShapes.Dialog,
       color = tokens.glass,
       border = BorderStroke(1.dp, tokens.edge),
-      shadowElevation = 12.dp,
+      shadowElevation = 0.dp,
     ) {
       Column(
         modifier = Modifier.padding(24.dp),

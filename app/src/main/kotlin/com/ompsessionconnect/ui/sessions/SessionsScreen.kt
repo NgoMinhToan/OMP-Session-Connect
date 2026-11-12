@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
@@ -69,6 +70,7 @@ fun SessionsScreen(
   onScan: () -> Unit,
   onAddLink: () -> Unit,
   appViewModel: AppViewModel,
+  listState: LazyListState,
   modifier: Modifier = Modifier,
 ) {
   var closeTarget by remember { mutableStateOf<SessionOverview?>(null) }
@@ -93,6 +95,7 @@ fun SessionsScreen(
     else -> {
       LazyColumn(
         modifier = modifier.fillMaxSize(),
+        state = listState,
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 156.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
       ) {
