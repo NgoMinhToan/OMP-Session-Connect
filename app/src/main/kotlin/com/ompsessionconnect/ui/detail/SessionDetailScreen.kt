@@ -135,6 +135,7 @@ import com.ompsessionconnect.ui.theme.CodeTextStyle
 import com.ompsessionconnect.ui.theme.LiveGlassShapes
 import com.ompsessionconnect.ui.theme.LocalLiveGlass
 import com.ompsessionconnect.ui.theme.LocalSessionStatusColors
+import dev.chrisbanes.haze.HazeTint
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
@@ -322,16 +323,22 @@ private fun SessionDetailContent(
 
   val blurAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
   val legacyInsets = !blurAvailable
-  val chromeBlur = if (blurAvailable) {
-    Modifier.hazeEffect(hazeState) {
-      blurRadius = 18.dp
-      backgroundColor = Color.Transparent
-      blurredEdgeTreatment = BlurredEdgeTreatment.Rectangle
-      noiseFactor = 0f
+  // Frosted-glass equivalent of HazeMaterials.thin(): a field-colored base plus a
+  // same-color veil, so each chrome box blends with its gradient region.
+  fun chromeBlur(field: Color): Modifier =
+    if (blurAvailable) {
+      Modifier.hazeEffect(hazeState) {
+        blurRadius = 24.dp
+        backgroundColor = field
+        tints = listOf(
+          HazeTint(field.copy(alpha = if (tokens.dark) 0.45f else 0.35f)),
+        )
+        blurredEdgeTreatment = BlurredEdgeTreatment.Rectangle
+        noiseFactor = 0f
+      }
+    } else {
+      Modifier
     }
-  } else {
-    Modifier
-  }
 
   Box(modifier = Modifier.fillMaxSize()) {
     // Keep the transcript in its own Haze source layer; the fixed chrome effects below
@@ -396,7 +403,7 @@ private fun SessionDetailContent(
         .align(Alignment.TopCenter)
         .fillMaxWidth()
         .zIndex(3f)
-        .then(chromeBlur)
+        .then(chromeBlur(tokens.fieldA))
         .then(
           if (blurAvailable) {
             Modifier
@@ -506,7 +513,7 @@ private fun SessionDetailContent(
         .align(Alignment.BottomCenter)
         .fillMaxWidth()
         .zIndex(3f)
-        .then(chromeBlur),
+        .then(chromeBlur(tokens.fieldC)),
     ) {
       if (snapshot != null) {
         Column(
