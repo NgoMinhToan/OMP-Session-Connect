@@ -12,6 +12,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -86,6 +87,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
@@ -120,7 +122,7 @@ import com.ompsessionconnect.domain.model.UserMessageItem
 import com.ompsessionconnect.ui.AppEvent
 import com.ompsessionconnect.ui.AppViewModel
 import com.ompsessionconnect.ui.components.ConfirmDialog
-import com.ompsessionconnect.ui.components.edgeFade
+import com.ompsessionconnect.ui.components.edgeBlurFade
 import com.ompsessionconnect.ui.components.GlassIconButton
 import com.ompsessionconnect.ui.components.StatusPill
 import com.ompsessionconnect.ui.components.rememberVoiceInput
@@ -502,7 +504,7 @@ private fun SessionDetailContent(
         modifier = Modifier
           .fillMaxWidth()
           .weight(1f)
-          .edgeFade(top = 18.dp, bottom = 26.dp),
+          .edgeBlurFade(),
         state = listState,
         reverseLayout = true,
         contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
@@ -1037,50 +1039,54 @@ private fun Composer(
 ) {
   val tokens = LocalLiveGlass.current
   val status = LocalSessionStatusColors.current
-  Surface(
-    shape = LiveGlassShapes.Composer,
-    color = tokens.sheetOpaque,
-    contentColor = tokens.ink,
-    border = BorderStroke(1.dp, tokens.edge),
-    shadowElevation = 12.dp,
+  val composerShape = LiveGlassShapes.Composer
+  Box(
+    modifier = Modifier
+      .fillMaxWidth()
+      .clip(composerShape)
+      .background(tokens.control),
   ) {
     Row(
       modifier = Modifier
         .fillMaxWidth()
         .padding(horizontal = 8.dp, vertical = 7.dp),
-      verticalAlignment = Alignment.Bottom,
+      verticalAlignment = Alignment.CenterVertically,
       horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-      Box(
+      BasicTextField(
+        value = draft,
+        onValueChange = onDraftChange,
+        enabled = enabled,
         modifier = Modifier
           .weight(1f)
-          .padding(horizontal = 6.dp, vertical = 9.dp),
-      ) {
-        if (draft.isEmpty()) {
-          Text(
-            text = when {
-              readOnly -> stringResource(R.string.detail_read_only_hint)
-              !enabled -> stringResource(R.string.error_not_live)
-              else -> stringResource(R.string.detail_composer_hint)
-            },
-            style = MaterialTheme.typography.bodyMedium,
-            color = tokens.muted,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-          )
-        }
-        BasicTextField(
-          value = draft,
-          onValueChange = onDraftChange,
-          enabled = enabled,
-          modifier = Modifier.fillMaxWidth(),
-          textStyle = MaterialTheme.typography.bodyMedium.copy(
-            color = if (enabled) tokens.ink else tokens.muted,
-          ),
-          cursorBrush = SolidColor(tokens.primary),
-          maxLines = 5,
-        )
-      }
+          .padding(horizontal = 8.dp, vertical = 10.dp),
+        textStyle = MaterialTheme.typography.bodyMedium.copy(
+          color = if (enabled) tokens.ink else tokens.muted,
+        ),
+        cursorBrush = SolidColor(tokens.primary),
+        maxLines = 5,
+        decorationBox = { innerTextField ->
+          Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.CenterStart,
+          ) {
+            if (draft.isEmpty()) {
+              Text(
+                text = when {
+                  readOnly -> stringResource(R.string.detail_read_only_hint)
+                  !enabled -> stringResource(R.string.error_not_live)
+                  else -> stringResource(R.string.detail_composer_hint)
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = tokens.muted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+              )
+            }
+            innerTextField()
+          }
+        },
+      )
       IconButton(onClick = onVoice, enabled = enabled && voiceEnabled) {
         Icon(
           painterResource(R.drawable.ic_mic),

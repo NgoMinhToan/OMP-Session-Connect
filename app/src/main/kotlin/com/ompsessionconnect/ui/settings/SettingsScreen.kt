@@ -86,7 +86,7 @@ fun SettingsScreen(
   LazyColumn(
     modifier = modifier.fillMaxSize(),
     state = listState,
-    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 28.dp),
+    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 28.dp),
     verticalArrangement = Arrangement.spacedBy(10.dp),
   ) {
     item(key = "appearance-header", contentType = "header") {
@@ -195,7 +195,7 @@ fun SettingsScreen(
 private fun SettingsSectionLabel(text: String) {
   Text(
     text = text.uppercase(),
-    modifier = Modifier.padding(start = 4.dp, top = 10.dp, bottom = 0.dp),
+    modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 0.dp),
     style = MaterialTheme.typography.labelMedium,
     fontWeight = FontWeight.SemiBold,
     letterSpacing = 1.2.sp,

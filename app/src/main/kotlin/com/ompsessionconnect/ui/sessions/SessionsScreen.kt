@@ -121,7 +121,6 @@ fun SessionsScreen(
             onClick = { onOpenSession(card.id) },
             onReconnect = { appViewModel.reconnect(card.id) },
             onClose = { closeTarget = sessions.firstOrNull { it.id == card.id } },
-            modifier = Modifier.animateItem(),
           )
         }
       }

@@ -271,18 +271,19 @@ private fun HomeHeader(
 ) {
   val tokens = LocalLiveGlass.current
   val status = LocalSessionStatusColors.current
+  val hasDescription = tab != HomeTab.SETTINGS
   val titleSize by animateFloatAsState(
     targetValue = if (collapsed) 22f else 28f,
     animationSpec = tween(180),
     label = "header-title-size",
   )
   val descriptionHeight by animateDpAsState(
-    targetValue = if (collapsed) 0.dp else 22.dp,
+    targetValue = if (collapsed || !hasDescription) 0.dp else 22.dp,
     animationSpec = tween(180),
     label = "header-description-height",
   )
   val descriptionAlpha by animateFloatAsState(
-    targetValue = if (collapsed) 0f else 1f,
+    targetValue = if (collapsed || !hasDescription) 0f else 1f,
     animationSpec = tween(150),
     label = "header-description-alpha",
   )
@@ -295,7 +296,12 @@ private fun HomeHeader(
     modifier = Modifier
       .fillMaxWidth()
       .statusBarsPadding()
-      .padding(start = 20.dp, end = 16.dp, top = 10.dp, bottom = 8.dp),
+      .padding(
+        start = 20.dp,
+        end = 16.dp,
+        top = 10.dp,
+        bottom = if (hasDescription) 8.dp else 0.dp,
+      ),
   ) {
     Row(
       modifier = Modifier
@@ -334,57 +340,59 @@ private fun HomeHeader(
         }
       }
     }
-    Box(
-      modifier = Modifier
-        .fillMaxWidth()
-        .height(descriptionHeight),
-    ) {
-      if (descriptionAlpha > 0f) {
-        Box(modifier = Modifier.alpha(descriptionAlpha)) {
-          when (tab) {
-            HomeTab.SESSIONS -> {
-              val list = sessions.orEmpty()
-              val live = list.count {
-                it.status == SessionStatus.LIVE ||
-                  it.status == SessionStatus.WORKING ||
-                  it.status == SessionStatus.WAITING_INPUT ||
-                  it.status == SessionStatus.WATCHING
-              }
-              val attention = list.count { it.needsAttention }
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-              ) {
-                if (live > 0) {
-                  Box(
-                    modifier = Modifier
-                      .size(7.dp)
-                      .background(status.live, CircleShape),
+    if (hasDescription) {
+      Box(
+        modifier = Modifier
+          .fillMaxWidth()
+          .height(descriptionHeight),
+      ) {
+        if (descriptionAlpha > 0f) {
+          Box(modifier = Modifier.alpha(descriptionAlpha)) {
+            when (tab) {
+              HomeTab.SESSIONS -> {
+                val list = sessions.orEmpty()
+                val live = list.count {
+                  it.status == SessionStatus.LIVE ||
+                    it.status == SessionStatus.WORKING ||
+                    it.status == SessionStatus.WAITING_INPUT ||
+                    it.status == SessionStatus.WATCHING
+                }
+                val attention = list.count { it.needsAttention }
+                Row(
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                  if (live > 0) {
+                    Box(
+                      modifier = Modifier
+                        .size(7.dp)
+                        .background(status.live, CircleShape),
+                    )
+                  }
+                  Text(
+                    text = if (sessions == null || list.isEmpty()) {
+                      stringResource(R.string.sessions_subtitle)
+                    } else {
+                      "${pluralStringResource(R.plurals.sessions_live, live, live)} · " +
+                        "${pluralStringResource(R.plurals.sessions_need_you, attention, attention)} · " +
+                        stringResource(R.string.sessions_stored, list.size)
+                    },
+                    style = MaterialTheme.typography.labelMedium,
+                    color = tokens.muted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                   )
                 }
-                Text(
-                  text = if (sessions == null || list.isEmpty()) {
-                    stringResource(R.string.sessions_subtitle)
-                  } else {
-                    "${pluralStringResource(R.plurals.sessions_live, live, live)} · " +
-                      "${pluralStringResource(R.plurals.sessions_need_you, attention, attention)} · " +
-                      stringResource(R.string.sessions_stored, list.size)
-                  },
-                  style = MaterialTheme.typography.labelMedium,
-                  color = tokens.muted,
-                  maxLines = 1,
-                  overflow = TextOverflow.Ellipsis,
-                )
               }
+              HomeTab.ACTIVITY -> Text(
+                text = stringResource(R.string.activity_subtitle),
+                style = MaterialTheme.typography.bodyMedium,
+                color = tokens.muted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+              )
+              HomeTab.SETTINGS -> Unit
             }
-            HomeTab.ACTIVITY -> Text(
-              text = stringResource(R.string.activity_subtitle),
-              style = MaterialTheme.typography.bodyMedium,
-              color = tokens.muted,
-              maxLines = 1,
-              overflow = TextOverflow.Ellipsis,
-            )
-            HomeTab.SETTINGS -> Unit
           }
         }
       }

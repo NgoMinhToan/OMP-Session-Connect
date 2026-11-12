@@ -186,6 +186,7 @@ private fun liveGlassTokens(
     glass = if (dark) LiveGlassDarkGlass else LiveGlassLightGlass,
     glassStrong = if (dark) LiveGlassDarkGlassStrong else LiveGlassLightGlassStrong,
     sheetOpaque = if (dark) LiveGlassDarkSheetOpaque else LiveGlassLightSheetOpaque,
+    control = if (dark) LiveGlassDarkControl else LiveGlassLightControl,
     glassInset = if (dark) LiveGlassDarkInset else LiveGlassLightInset,
     edge = if (dark) LiveGlassDarkEdge else LiveGlassLightEdge,
     hairline = if (dark) LiveGlassDarkHairline else LiveGlassLightHairline,

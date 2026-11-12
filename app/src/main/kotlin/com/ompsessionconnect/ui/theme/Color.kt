@@ -27,6 +27,7 @@ val LiveGlassDarkFieldC = Color(0xFF1B1030)
 val LiveGlassLightGlass = Color(0x8CFFFFFF) // 55%
 val LiveGlassLightGlassStrong = Color(0xC2FFFFFF) // 76%
 val LiveGlassLightSheetOpaque = Color(0xFFFFFFFF) // opaque reading sheet
+val LiveGlassLightControl = Color(0xFFFFFFFF) // controls share one fill
 val LiveGlassLightEdge = Color(0xBFFFFFFF) // 75%
 val LiveGlassLightInset = Color(0x57FFFFFF)
 val LiveGlassLightHairline = Color(0x14101418)
@@ -34,6 +35,7 @@ val LiveGlassLightHairline = Color(0x14101418)
 val LiveGlassDarkGlass = Color(0x8C141826) // rgba(20,24,38,.55)
 val LiveGlassDarkGlassStrong = Color(0xCC1B2031)
 val LiveGlassDarkSheetOpaque = Color(0xFF141826)
+val LiveGlassDarkControl = Color(0xFF141826)
 val LiveGlassDarkEdge = Color(0x29FFFFFF) // 16%
 val LiveGlassDarkInset = Color(0x0FFFFFFF)
 val LiveGlassDarkHairline = Color(0x17FFFFFF)
@@ -114,6 +116,7 @@ data class LiveGlassTokens(
   val glass: Color,
   val glassStrong: Color,
   val sheetOpaque: Color,
+  val control: Color,
   val glassInset: Color,
   val edge: Color,
   val hairline: Color,
@@ -136,6 +139,7 @@ val DefaultLiveGlassTokens = LiveGlassTokens(
   glass = LiveGlassLightGlass,
   glassStrong = LiveGlassLightGlassStrong,
   sheetOpaque = LiveGlassLightSheetOpaque,
+  control = LiveGlassLightControl,
   glassInset = LiveGlassLightInset,
   edge = LiveGlassLightEdge,
   hairline = LiveGlassLightHairline,
