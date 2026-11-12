@@ -139,6 +139,7 @@ import com.ompsessionconnect.ui.theme.LiveGlassShapes
 import com.ompsessionconnect.ui.theme.LocalLiveGlass
 import com.ompsessionconnect.ui.theme.LocalSessionStatusColors
 import dev.chrisbanes.haze.HazeInput
+import dev.chrisbanes.haze.HazeProgressive
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import dev.chrisbanes.haze.blur.HazeBlurStyle
@@ -222,7 +223,7 @@ fun SessionDetailScreen(
   }
 }
 
-private val ChromeFade = 36.dp
+private val ChromeFade = 44.dp
 
 private fun chromeBlurStyle(field: Color, dark: Boolean): HazeBlurStyle = HazeBlurStyle {
   blurRadius(24.dp)
@@ -230,6 +231,32 @@ private fun chromeBlurStyle(field: Color, dark: Boolean): HazeBlurStyle = HazeBl
   colorEffects(
     listOf(
       HazeColorEffect.tint(field.copy(alpha = if (dark) 0.45f else 0.35f)),
+    ),
+  )
+  blurredEdgeTreatment(BlurredEdgeTreatment.Rectangle)
+  noiseFactor(0f)
+}
+
+private fun fadeBlurStyle(field: Color, top: Boolean): HazeBlurStyle = HazeBlurStyle {
+  blurRadius(24.dp)
+  backgroundColor(Color.Transparent)
+  colorEffects(
+    listOf(
+      HazeColorEffect.tint(
+        Brush.verticalGradient(
+          colorStops = if (top) {
+            arrayOf(0f to field, 0.55f to field.copy(alpha = 0.55f), 1f to Color.Transparent)
+          } else {
+            arrayOf(0f to Color.Transparent, 0.45f to field.copy(alpha = 0.55f), 1f to field)
+          },
+        ),
+      ),
+    ),
+  )
+  progressive(
+    HazeProgressive.verticalGradient(
+      startIntensity = if (top) 1f else 0f,
+      endIntensity = if (top) 0f else 1f,
     ),
   )
   blurredEdgeTreatment(BlurredEdgeTreatment.Rectangle)
@@ -361,6 +388,8 @@ private fun SessionDetailContent(
   val bottomBlurStyle = remember(tokens.fieldC, tokens.dark) {
     chromeBlurStyle(tokens.fieldC, tokens.dark)
   }
+  val topFadeStyle = remember(tokens.fieldA) { fadeBlurStyle(tokens.fieldA, top = true) }
+  val bottomFadeStyle = remember(tokens.fieldC) { fadeBlurStyle(tokens.fieldC, top = false) }
   fun chromeBlur(style: HazeBlurStyle): Modifier =
     if (blurAvailable) {
       Modifier.hazeBlur(
@@ -369,6 +398,15 @@ private fun SessionDetailContent(
       )
     } else {
       Modifier
+    }
+  fun chromeFade(style: HazeBlurStyle, fallback: Brush): Modifier =
+    if (blurAvailable) {
+      Modifier.hazeBlur(
+        input = HazeInput.Sources(hazeState),
+        style = style,
+      )
+    } else {
+      Modifier.background(fallback)
     }
 
   Box(modifier = Modifier.fillMaxSize()) {
@@ -545,12 +583,15 @@ private fun SessionDetailContent(
           .fillMaxWidth()
           .height(ChromeFade)
           .zIndex(3f)
-          .background(
-            Brush.verticalGradient(
-              colorStops = arrayOf(
-                0f to tokens.fieldA,
-                0.55f to tokens.fieldA.copy(alpha = 0.55f),
-                1f to Color.Transparent,
+          .then(
+            chromeFade(
+              topFadeStyle,
+              Brush.verticalGradient(
+                colorStops = arrayOf(
+                  0f to tokens.fieldA,
+                  0.55f to tokens.fieldA.copy(alpha = 0.55f),
+                  1f to Color.Transparent,
+                ),
               ),
             ),
           ),
@@ -654,12 +695,15 @@ private fun SessionDetailContent(
           .fillMaxWidth()
           .height(ChromeFade)
           .zIndex(3f)
-          .background(
-            Brush.verticalGradient(
-              colorStops = arrayOf(
-                0f to Color.Transparent,
-                0.45f to tokens.fieldC.copy(alpha = 0.55f),
-                1f to tokens.fieldC,
+          .then(
+            chromeFade(
+              bottomFadeStyle,
+              Brush.verticalGradient(
+                colorStops = arrayOf(
+                  0f to Color.Transparent,
+                  0.45f to tokens.fieldC.copy(alpha = 0.55f),
+                  1f to tokens.fieldC,
+                ),
               ),
             ),
           ),
