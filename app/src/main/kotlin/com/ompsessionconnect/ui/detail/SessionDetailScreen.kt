@@ -1,7 +1,4 @@
-@file:OptIn(
-  androidx.compose.material3.ExperimentalMaterial3Api::class,
-  dev.chrisbanes.haze.ExperimentalHazeApi::class,
-)
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 
 package com.ompsessionconnect.ui.detail
 
@@ -93,7 +90,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.zIndex
 import android.os.Build
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
@@ -141,10 +139,9 @@ import com.ompsessionconnect.ui.theme.LocalSessionStatusColors
 import dev.chrisbanes.haze.HazeInput
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
-import dev.chrisbanes.haze.glass.GlassDefaults
-import dev.chrisbanes.haze.glass.GlassStyle
-import dev.chrisbanes.haze.glass.OpticalSizeValue
-import dev.chrisbanes.haze.glass.hazeGlass
+import dev.chrisbanes.haze.blur.HazeBlurStyle
+import dev.chrisbanes.haze.blur.HazeColorEffect
+import dev.chrisbanes.haze.blur.hazeBlur
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -223,21 +220,18 @@ fun SessionDetailScreen(
   }
 }
 
-private val ChromeGlassShape = RoundedCornerShape(28.dp)
+private val ChromeFade = 28.dp
 
-private fun chromeGlassStyle(field: Color, dark: Boolean): GlassStyle = GlassStyle {
-  backgroundColor(Color.Transparent)
-  tint(field.copy(alpha = if (dark) 0.72f else 0.62f))
-  shape(ChromeGlassShape)
-  optics(
-    GlassDefaults.optics.copy(
-      depth = OpticalSizeValue.Fixed(1f),
-      refractionStrength = 0.9f,
-      refractionDisplacement = 48.dp,
-      refractionFoldStrength = 0.65f,
-      refractionDetailIntensity = 0.76f,
+private fun chromeBlurStyle(field: Color, dark: Boolean): HazeBlurStyle = HazeBlurStyle {
+  blurRadius(24.dp)
+  backgroundColor(field)
+  colorEffects(
+    listOf(
+      HazeColorEffect.tint(field.copy(alpha = if (dark) 0.45f else 0.35f)),
     ),
   )
+  blurredEdgeTreatment(BlurredEdgeTreatment.Rectangle)
+  noiseFactor(0f)
 }
 
 @Composable
@@ -346,20 +340,18 @@ private fun SessionDetailContent(
 
   val blurAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
   val legacyInsets = !blurAvailable
-  val topGlassStyle = remember(tokens.fieldA, tokens.dark) {
-    chromeGlassStyle(tokens.fieldA, tokens.dark)
+  val topBlurStyle = remember(tokens.fieldA, tokens.dark) {
+    chromeBlurStyle(tokens.fieldA, tokens.dark)
   }
-  val bottomGlassStyle = remember(tokens.fieldC, tokens.dark) {
-    chromeGlassStyle(tokens.fieldC, tokens.dark)
+  val bottomBlurStyle = remember(tokens.fieldC, tokens.dark) {
+    chromeBlurStyle(tokens.fieldC, tokens.dark)
   }
-  fun chromeGlass(style: GlassStyle): Modifier =
+  fun chromeBlur(style: HazeBlurStyle): Modifier =
     if (blurAvailable) {
-      Modifier
-        .clip(ChromeGlassShape)
-        .hazeGlass(
-          input = HazeInput.Sources(hazeState),
-          style = style,
-        )
+      Modifier.hazeBlur(
+        input = HazeInput.Sources(hazeState),
+        style = style,
+      )
     } else {
       Modifier
     }
@@ -427,7 +419,7 @@ private fun SessionDetailContent(
         .align(Alignment.TopCenter)
         .fillMaxWidth()
         .zIndex(3f)
-        .then(chromeGlass(topGlassStyle))
+        .then(chromeBlur(topBlurStyle))
         .then(
           if (blurAvailable) {
             Modifier
@@ -440,7 +432,8 @@ private fun SessionDetailContent(
         modifier = Modifier
           .fillMaxWidth()
           .zIndex(2f)
-          .statusBarsPadding(),
+          .statusBarsPadding()
+          .padding(top = 6.dp, bottom = ChromeFade),
       ) {
         Row(
           modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -530,6 +523,18 @@ private fun SessionDetailContent(
           }
         }
       }
+      Box(
+        modifier = Modifier
+          .align(Alignment.BottomCenter)
+          .fillMaxWidth()
+          .height(ChromeFade)
+          .zIndex(3f)
+          .background(
+            Brush.verticalGradient(
+              colors = listOf(tokens.fieldA, Color.Transparent),
+            ),
+          ),
+      )
     }
 
     Box(
@@ -537,7 +542,7 @@ private fun SessionDetailContent(
         .align(Alignment.BottomCenter)
         .fillMaxWidth()
         .zIndex(3f)
-        .then(chromeGlass(bottomGlassStyle)),
+        .then(chromeBlur(bottomBlurStyle)),
     ) {
       if (snapshot != null) {
         Column(
@@ -546,7 +551,7 @@ private fun SessionDetailContent(
             .zIndex(2f)
             .imePadding()
             .navigationBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(start = 16.dp, top = ChromeFade, end = 16.dp, bottom = 8.dp),
           verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
           snapshot.todos?.let { todos ->
@@ -622,6 +627,18 @@ private fun SessionDetailContent(
           )
         }
       }
+      Box(
+        modifier = Modifier
+          .align(Alignment.TopCenter)
+          .fillMaxWidth()
+          .height(ChromeFade)
+          .zIndex(3f)
+          .background(
+            Brush.verticalGradient(
+              colors = listOf(Color.Transparent, tokens.fieldC),
+            ),
+          ),
+      )
     }
 
     SnackbarHost(
