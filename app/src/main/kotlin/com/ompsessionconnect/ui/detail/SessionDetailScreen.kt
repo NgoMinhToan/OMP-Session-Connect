@@ -93,7 +93,9 @@ import android.os.Build
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -220,7 +222,7 @@ fun SessionDetailScreen(
   }
 }
 
-private val ChromeFade = 28.dp
+private val ChromeFade = 36.dp
 
 private fun chromeBlurStyle(field: Color, dark: Boolean): HazeBlurStyle = HazeBlurStyle {
   blurRadius(24.dp)
@@ -254,6 +256,8 @@ private fun SessionDetailContent(
   var todoSheetOpen by remember { mutableStateOf(false) }
   val listState = rememberLazyListState()
   val hazeState = rememberHazeState()
+  var topChromeHeightPx by remember { mutableStateOf(0) }
+  var bottomChromeHeightPx by remember { mutableStateOf(0) }
   val scope = rememberCoroutineScope()
   val context = LocalContext.current
   val voicePermissionDeniedText = stringResource(R.string.voice_permission_denied)
@@ -340,6 +344,17 @@ private fun SessionDetailContent(
 
   val blurAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
   val legacyInsets = !blurAvailable
+  val density = LocalDensity.current
+  val topContentInset = if (blurAvailable && topChromeHeightPx > 0) {
+    with(density) { topChromeHeightPx.toDp() } + 8.dp
+  } else {
+    16.dp
+  }
+  val bottomContentInset = if (blurAvailable && bottomChromeHeightPx > 0) {
+    with(density) { bottomChromeHeightPx.toDp() } + 8.dp
+  } else {
+    16.dp
+  }
   val topBlurStyle = remember(tokens.fieldA, tokens.dark) {
     chromeBlurStyle(tokens.fieldA, tokens.dark)
   }
@@ -373,8 +388,8 @@ private fun SessionDetailContent(
         contentPadding = androidx.compose.foundation.layout.PaddingValues(
           start = 16.dp,
           end = 16.dp,
-          top = if (legacyInsets) 200.dp else 16.dp,
-          bottom = if (legacyInsets) 140.dp else 16.dp,
+          top = if (legacyInsets) 200.dp else topContentInset,
+          bottom = if (legacyInsets) 140.dp else bottomContentInset,
         ),
         verticalArrangement = Arrangement.spacedBy(10.dp),
       ) {
@@ -420,6 +435,7 @@ private fun SessionDetailContent(
         .fillMaxWidth()
         .zIndex(3f)
         .then(chromeBlur(topBlurStyle))
+        .onSizeChanged { topChromeHeightPx = it.height }
         .then(
           if (blurAvailable) {
             Modifier
@@ -433,7 +449,7 @@ private fun SessionDetailContent(
           .fillMaxWidth()
           .zIndex(2f)
           .statusBarsPadding()
-          .padding(top = 6.dp, bottom = ChromeFade),
+          .padding(top = 8.dp, bottom = ChromeFade),
       ) {
         Row(
           modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -531,7 +547,11 @@ private fun SessionDetailContent(
           .zIndex(3f)
           .background(
             Brush.verticalGradient(
-              colors = listOf(tokens.fieldA, Color.Transparent),
+              colorStops = arrayOf(
+                0f to tokens.fieldA,
+                0.55f to tokens.fieldA.copy(alpha = 0.55f),
+                1f to Color.Transparent,
+              ),
             ),
           ),
       )
@@ -542,7 +562,8 @@ private fun SessionDetailContent(
         .align(Alignment.BottomCenter)
         .fillMaxWidth()
         .zIndex(3f)
-        .then(chromeBlur(bottomBlurStyle)),
+        .then(chromeBlur(bottomBlurStyle))
+        .onSizeChanged { bottomChromeHeightPx = it.height },
     ) {
       if (snapshot != null) {
         Column(
@@ -635,7 +656,11 @@ private fun SessionDetailContent(
           .zIndex(3f)
           .background(
             Brush.verticalGradient(
-              colors = listOf(Color.Transparent, tokens.fieldC),
+              colorStops = arrayOf(
+                0f to Color.Transparent,
+                0.45f to tokens.fieldC.copy(alpha = 0.55f),
+                1f to tokens.fieldC,
+              ),
             ),
           ),
       )
