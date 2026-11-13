@@ -428,7 +428,7 @@ internal fun highlightCode(
   return builder.toAnnotatedString()
 }
 
-private object CodeSyntax {
+internal object CodeSyntax {
   val cLikeComments = Regex("/\\*[\\s\\S]*?\\*/|//[^\\n]*")
   val hashComments = Regex("#[^\\n]*")
   val dashComments = Regex("--[^\\n]*")
@@ -484,9 +484,10 @@ private object CodeSyntax {
     "foreign", "key", "constraint", "default", "returning", "with", "asc", "desc",
   )
 
-  private val cache = ConcurrentHashMap<String, Regex?>()
+  private val cache = ConcurrentHashMap<String, Regex>()
 
-  fun keywords(language: String): Regex? = cache.getOrPut(language) {
+  fun keywords(language: String): Regex? {
+    cache[language]?.let { return it }
     val words = when (language) {
       "kt", "kotlin", "kts", "java", "groovy", "gradle", "scala", "cs", "csharp" -> jvmKeywords
       "py", "python", "js", "javascript", "jsx", "ts", "typescript", "tsx", "rb", "ruby" ->
@@ -496,11 +497,11 @@ private object CodeSyntax {
       "json" -> setOf("true", "false", "null")
       else -> emptySet()
     }
-    if (words.isEmpty()) {
-      null
-    } else {
-      val options = if (language == "sql") setOf(RegexOption.IGNORE_CASE) else emptySet()
-      Regex("\\b(?:" + words.joinToString("|") + ")\\b", options)
-    }
+    // ConcurrentHashMap rejects null values, so "no keywords for this language" is
+    // computed on demand instead of being cached.
+    if (words.isEmpty()) return null
+    val options = if (language == "sql") setOf(RegexOption.IGNORE_CASE) else emptySet()
+    val regex = Regex("\\b(?:" + words.joinToString("|") + ")\\b", options)
+    return cache.putIfAbsent(language, regex) ?: regex
   }
 }

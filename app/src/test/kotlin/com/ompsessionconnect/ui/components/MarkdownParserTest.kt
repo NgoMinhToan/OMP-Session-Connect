@@ -1,6 +1,10 @@
 package com.ompsessionconnect.ui.components
 
+import androidx.compose.ui.graphics.Color
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -104,5 +108,38 @@ class MarkdownParserTest {
     // "#tag" is not a heading; hashtags in prose must survive.
     val paragraph = parseMarkdown("#tag is not a heading").single() as MdBlock.Paragraph
     assertEquals("#tag is not a heading", paragraph.text)
+  }
+
+  @Test
+  fun languageWithoutKeywordsYieldsNullEveryTime() {
+    // CodeSyntax caches compiled keyword patterns. A fence language with no keyword
+    // list (plain ``` or an unknown tag) has no pattern, and caching that miss must
+    // not throw: ConcurrentHashMap rejects null values, which crashed the transcript
+    // when such a block scrolled into view.
+    assertNull(CodeSyntax.keywords("no-such-language"))
+    assertNull(CodeSyntax.keywords("no-such-language"))
+    assertNull(CodeSyntax.keywords(""))
+  }
+
+  @Test
+  fun knownLanguageKeywordsAreCached() {
+    val first = CodeSyntax.keywords("kotlin")
+    assertNotNull(first)
+    assertTrue(first!!.containsMatchIn("val x = 1"))
+    assertSame(first, CodeSyntax.keywords("kotlin"))
+  }
+
+  @Test
+  fun highlightingFenceWithoutKeywordsDoesNotThrow() {
+    val palette = CodePalette(
+      keyword = Color(0xFF112233),
+      string = Color(0xFF445566),
+      comment = Color(0xFF778899),
+      number = Color(0xFFAABBCC),
+    )
+    // A plain ``` fence and an unknown language both have no keyword pattern; the
+    // transcript crashed when such a block was highlighted on screen.
+    assertEquals("ls -la", highlightCode("ls -la", "", palette).text)
+    assertEquals("x", highlightCode("x", "no-such-language", palette).text)
   }
 }
