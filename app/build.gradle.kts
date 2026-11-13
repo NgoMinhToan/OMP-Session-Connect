@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.compose.compiler)
@@ -5,6 +7,23 @@ plugins {
   alias(libs.plugins.ksp)
   alias(libs.plugins.hilt)
 }
+
+// Version comes from gradle.properties locally and from -P flags in CI, where the
+// workflow derives it from the commit count so every published build is unique.
+val appVersionName: String = providers.gradleProperty("omp.versionName").getOrElse("1.0.0")
+val appVersionCode: Int = providers.gradleProperty("omp.versionCode").getOrElse("1").toInt()
+
+// Release signing. The keystore is intentionally committed so CI can produce
+// installable APKs without extra secrets; see docs/RELEASING.md.
+val keystoreDir = rootProject.layout.projectDirectory.dir("keystore")
+val keystoreFile = keystoreDir.file("omp-release.jks").asFile
+val keystoreProperties = Properties().apply {
+  val propsFile = keystoreDir.file("keystore.properties").asFile
+  if (propsFile.exists()) propsFile.inputStream().use(::load)
+}
+
+fun signingValue(key: String, env: String, fallback: String): String =
+  keystoreProperties.getProperty(key) ?: System.getenv(env) ?: fallback
 
 android {
   namespace = "com.ompsessionconnect"
@@ -14,8 +33,31 @@ android {
     applicationId = "com.ompsessionconnect"
     minSdk = 26
     targetSdk = 36
-    versionCode = 1
-    versionName = "1.0.0"
+    versionCode = appVersionCode
+    versionName = appVersionName
+  }
+
+  signingConfigs {
+    create("release") {
+      if (keystoreFile.exists()) {
+        storeFile = keystoreFile
+        storePassword = signingValue("storePassword", "OMP_KEYSTORE_PASSWORD", "omp-session-connect")
+        keyAlias = signingValue("keyAlias", "OMP_KEY_ALIAS", "omp")
+        keyPassword = signingValue("keyPassword", "OMP_KEY_PASSWORD", "omp-session-connect")
+        enableV1Signing = true
+        enableV2Signing = true
+      }
+    }
+  }
+
+  // One APK per ABI plus a universal APK that runs anywhere.
+  splits {
+    abi {
+      isEnable = true
+      reset()
+      include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+      isUniversalApk = true
+    }
   }
 
   buildTypes {
@@ -26,6 +68,16 @@ android {
         getDefaultProguardFile("proguard-android-optimize.txt"),
         "proguard-rules.pro",
       )
+      if (keystoreFile.exists()) signingConfig = signingConfigs.getByName("release")
+    }
+    // Same code and signing, R8 and resource shrinking disabled. Useful for
+    // readable stack traces and for comparing sizes against `release`.
+    create("releaseNonMinify") {
+      initWith(getByName("release"))
+      isMinifyEnabled = false
+      isShrinkResources = false
+      matchingFallbacks += listOf("release")
+      if (keystoreFile.exists()) signingConfig = signingConfigs.getByName("release")
     }
   }
 

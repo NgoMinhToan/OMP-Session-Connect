@@ -93,6 +93,9 @@
   <string name="transcript_guest">via %1$s</string>
   <string name="transcript_image">%1$d image</string>
   <string name="transcript_thinking">Thinking</string>
+  <string name="markdown_code">code</string>
+  <string name="markdown_copy_code">Copy</string>
+  <string name="markdown_copied">Copied</string>
 
   <string name="notif_channel_status">Session status</string>
   <string name="notif_channel_status_desc">Turns finishing, approvals, and connection changes</string>

@@ -45,6 +45,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
@@ -63,6 +64,8 @@ import com.ompsessionconnect.ui.theme.LocalSessionStatusColors
 fun SettingsScreen(
   viewModel: SettingsViewModel,
   listState: LazyListState,
+  topInset: Dp = 0.dp,
+  bottomInset: Dp = 0.dp,
   modifier: Modifier = Modifier,
 ) {
   val tokens = LocalLiveGlass.current
@@ -86,7 +89,7 @@ fun SettingsScreen(
   LazyColumn(
     modifier = modifier.fillMaxSize(),
     state = listState,
-    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 28.dp),
+    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = topInset, bottom = bottomInset),
     verticalArrangement = Arrangement.spacedBy(10.dp),
   ) {
     item(key = "appearance-header", contentType = "header") {

@@ -1,0 +1,159 @@
+name: Release APKs
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version name to publish (default: 1.0.<commit count>)"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  UNIVERSAL_ABI: universal
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: version
+        run: |
+          set -euo pipefail
+          commit_count=$(git rev-list --count HEAD)
+          input_version="${{ inputs.version }}"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            name="${GITHUB_REF#refs/tags/v}"
+          elif [[ -n "$input_version" ]]; then
+            name="${input_version#v}"
+          else
+            name="1.0.${commit_count}"
+          fi
+          if [[ ! "$name" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version '$name' is not MAJOR.MINOR.PATCH"
+            exit 1
+          fi
+          # Commit count keeps versionCode strictly increasing across every push.
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "code=$commit_count" >> "$GITHUB_OUTPUT"
+          echo "tag=v$name" >> "$GITHUB_OUTPUT"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Unit tests
+        run: ./gradlew --no-daemon test
+
+      - name: Assemble APKs
+        run: |
+          ./gradlew --no-daemon --stacktrace \
+            :app:assembleRelease \
+            :app:assembleReleaseNonMinify \
+            -Pomp.versionName="${{ steps.version.outputs.name }}" \
+            -Pomp.versionCode="${{ steps.version.outputs.code }}"
+
+      - name: Collect APKs
+        run: |
+          set -euo pipefail
+          version="${{ steps.version.outputs.name }}"
+          mkdir -p dist
+          declare -A rows
+          for dir in release releaseNonMinify; do
+            case "$dir" in
+              release) variant="release" ;;
+              releaseNonMinify) variant="release-nonminify" ;;
+            esac
+            for apk in "app/build/outputs/apk/$dir"/*.apk; do
+              [[ -e "$apk" ]] || continue
+              base="$(basename "$apk" .apk)"
+              abi="${base%-*}"
+              abi="${abi#app-}"
+              case "$abi" in
+                universal|armeabi-v7a|arm64-v8a|x86|x86_64) ;;
+                *) continue ;;
+              esac
+              out="dist/OMP-Session-Connect-${version}-${variant}-${abi}.apk"
+              cp "$apk" "$out"
+              size="$(du -h "$out" | cut -f1)"
+              printf '%s  %s\n' "$(sha256sum "$out" | cut -d' ' -f1)" \
+                "$(basename "$out")" >> dist/SHA256SUMS.txt
+              printf '| `%s` | %s |\n' "$(basename "$out")" "$size" >> dist/table.md
+            done
+          done
+          count=$(ls dist/*.apk | wc -l)
+          echo "collected $count APKs"
+          if [[ "$count" -ne 10 ]]; then
+            echo "::error::Expected 10 APKs (2 variants x 5 ABIs), got $count"
+            exit 1
+          fi
+          sort -o dist/SHA256SUMS.txt dist/SHA256SUMS.txt
+          sort -o dist/table.md dist/table.md
+
+      - name: Write release notes
+        run: |
+          set -euo pipefail
+          {
+            echo "Built from [\`${GITHUB_SHA:0:7}\`](https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}) on $(date -u +'%Y-%m-%d')."
+            echo
+            echo "Two variants per architecture: **release** (R8 minified, smaller) and **release-nonminify** (R8 and resource shrinking off, readable stack traces)."
+            echo
+            echo "| APK | Size |"
+            echo "| --- | --- |"
+            cat dist/table.md
+            echo
+            echo "### Which file do I need?"
+            echo
+            echo "| Device | APK |"
+            echo "| --- | --- |"
+            echo "| Most phones since 2017 | \`*-release-arm64-v8a.apk\` |"
+            echo "| Older 32-bit phones | \`*-release-armeabi-v7a.apk\` |"
+            echo "| Android emulator (x86_64) | \`*-release-x86_64.apk\` |"
+            echo "| Not sure | \`*-release-universal.apk\` |"
+            echo
+            echo "### Install"
+            echo
+            echo '```sh'
+            echo "adb install -r OMP-Session-Connect-${{ steps.version.outputs.name }}-release-arm64-v8a.apk"
+            echo '```'
+            echo
+            echo "Or copy the APK to the phone and open it (allow install from unknown sources). All APKs are signed with the same key, SHA-256 \`3B:7A:A9:07:9A:5E:DA:C5:1C:C4:77:D7:8A:68:8B:A3:79:A1:70:60:33:D0:72:B2:6B:30:73:57:1D:D9:CB:BA\`, so updates install over each other."
+            echo
+            echo "Checksums: \`SHA256SUMS.txt\` in the assets below."
+          } > release-notes.md
+          cat release-notes.md
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: OMP Session Connect ${{ steps.version.outputs.name }}
+          target_commitish: ${{ github.sha }}
+          body_path: release-notes.md
+          files: |
+            dist/*.apk
+            dist/SHA256SUMS.txt
+          draft: false
+          prerelease: false
+          make_latest: true

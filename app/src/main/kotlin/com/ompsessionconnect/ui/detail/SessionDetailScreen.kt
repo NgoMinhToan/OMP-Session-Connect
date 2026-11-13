@@ -13,10 +13,10 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -90,8 +90,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.zIndex
 import android.os.Build
-import androidx.compose.ui.draw.BlurredEdgeTreatment
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -127,9 +125,15 @@ import com.ompsessionconnect.domain.model.UiRequestKind
 import com.ompsessionconnect.domain.model.UserMessageItem
 import com.ompsessionconnect.ui.AppEvent
 import com.ompsessionconnect.ui.AppViewModel
+import com.ompsessionconnect.ui.components.ChromeEdge
+import com.ompsessionconnect.ui.components.ChromeFadeBand
 import com.ompsessionconnect.ui.components.ConfirmDialog
+import com.ompsessionconnect.ui.components.chromeBlur
+import com.ompsessionconnect.ui.components.chromeBlurStyle
+import com.ompsessionconnect.ui.components.fieldColorAt
 import com.ompsessionconnect.ui.components.edgeFade
 import com.ompsessionconnect.ui.components.GlassIconButton
+import com.ompsessionconnect.ui.components.MarkdownMessage
 import com.ompsessionconnect.ui.components.StatusPill
 import com.ompsessionconnect.ui.components.rememberVoiceInput
 import com.ompsessionconnect.ui.components.statusLabelRes
@@ -138,12 +142,8 @@ import com.ompsessionconnect.ui.theme.CodeTextStyle
 import com.ompsessionconnect.ui.theme.LiveGlassShapes
 import com.ompsessionconnect.ui.theme.LocalLiveGlass
 import com.ompsessionconnect.ui.theme.LocalSessionStatusColors
-import dev.chrisbanes.haze.HazeInput
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
-import dev.chrisbanes.haze.blur.HazeBlurStyle
-import dev.chrisbanes.haze.blur.HazeColorEffect
-import dev.chrisbanes.haze.blur.hazeBlur
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -220,20 +220,6 @@ fun SessionDetailScreen(
       )
     }
   }
-}
-
-private val ChromeFade = 44.dp
-
-private fun chromeBlurStyle(field: Color, dark: Boolean): HazeBlurStyle = HazeBlurStyle {
-  blurRadius(24.dp)
-  backgroundColor(field)
-  colorEffects(
-    listOf(
-      HazeColorEffect.tint(field.copy(alpha = if (dark) 0.45f else 0.35f)),
-    ),
-  )
-  blurredEdgeTreatment(BlurredEdgeTreatment.Rectangle)
-  noiseFactor(0f)
 }
 
 @Composable
@@ -355,23 +341,42 @@ private fun SessionDetailContent(
   } else {
     16.dp
   }
-  val topBlurStyle = remember(tokens.fieldA, tokens.dark) {
-    chromeBlurStyle(tokens.fieldA, tokens.dark)
-  }
-  val bottomBlurStyle = remember(tokens.fieldC, tokens.dark) {
-    chromeBlurStyle(tokens.fieldC, tokens.dark)
-  }
-  fun chromeBlur(style: HazeBlurStyle): Modifier =
-    if (blurAvailable) {
-      Modifier.hazeBlur(
-        input = HazeInput.Sources(hazeState),
-        style = style,
-      )
+  BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+    val rootWidthPx = with(density) { maxWidth.toPx() }
+    val rootHeightPx = with(density) { maxHeight.toPx() }
+    val fadeBandPx = with(density) { ChromeFadeBand.toPx() }
+    val topHeightDp = if (topChromeHeightPx > 0) {
+      with(density) { topChromeHeightPx.toDp() }
     } else {
-      Modifier
+      120.dp
+    }
+    val bottomHeightDp = if (bottomChromeHeightPx > 0) {
+      with(density) { bottomChromeHeightPx.toDp() }
+    } else {
+      160.dp
+    }
+    val topBandFraction = (ChromeFadeBand / topHeightDp).coerceIn(0f, 1f)
+    val bottomBandFraction = (ChromeFadeBand / bottomHeightDp).coerceIn(0f, 1f)
+    // Sample the field where the mask is still fully opaque, so box and wallpaper agree there.
+    val topField = fieldColorAt(
+      tokens,
+      rootWidthPx,
+      rootHeightPx,
+      with(density) { topHeightDp.toPx() } - fadeBandPx,
+    )
+    val bottomField = fieldColorAt(
+      tokens,
+      rootWidthPx,
+      rootHeightPx,
+      rootHeightPx - with(density) { bottomHeightDp.toPx() } + fadeBandPx,
+    )
+    val topBlurStyle = remember(tokens.dark, topField, topBandFraction) {
+      chromeBlurStyle(topField, tokens.dark, ChromeEdge.Top, topBandFraction)
+    }
+    val bottomBlurStyle = remember(tokens.dark, bottomField, bottomBandFraction) {
+      chromeBlurStyle(bottomField, tokens.dark, ChromeEdge.Bottom, bottomBandFraction)
     }
 
-  Box(modifier = Modifier.fillMaxSize()) {
     // Keep the transcript in its own Haze source layer; the fixed chrome effects below
     // sample this layer and blur only the pixels inside each chrome box.
     Box(
@@ -434,22 +439,16 @@ private fun SessionDetailContent(
         .align(Alignment.TopCenter)
         .fillMaxWidth()
         .zIndex(3f)
-        .then(chromeBlur(topBlurStyle))
+        .chromeBlur(hazeState, topBlurStyle, blurAvailable)
         .onSizeChanged { topChromeHeightPx = it.height }
-        .then(
-          if (blurAvailable) {
-            Modifier
-          } else {
-            Modifier.background(tokens.control.copy(alpha = 0.58f))
-          },
-        ),
+        .then(if (blurAvailable) Modifier else Modifier.background(topField)),
     ) {
       Column(
         modifier = Modifier
           .fillMaxWidth()
           .zIndex(2f)
           .statusBarsPadding()
-          .padding(top = 8.dp, bottom = ChromeFade),
+          .padding(top = 8.dp),
       ) {
         Row(
           modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -539,22 +538,6 @@ private fun SessionDetailContent(
           }
         }
       }
-      Box(
-        modifier = Modifier
-          .align(Alignment.BottomCenter)
-          .fillMaxWidth()
-          .height(ChromeFade)
-          .zIndex(3f)
-          .background(
-            Brush.verticalGradient(
-              colorStops = arrayOf(
-                0f to tokens.fieldA,
-                0.55f to tokens.fieldA.copy(alpha = 0.55f),
-                1f to Color.Transparent,
-              ),
-            ),
-          ),
-      )
     }
 
     Box(
@@ -562,7 +545,7 @@ private fun SessionDetailContent(
         .align(Alignment.BottomCenter)
         .fillMaxWidth()
         .zIndex(3f)
-        .then(chromeBlur(bottomBlurStyle))
+        .chromeBlur(hazeState, bottomBlurStyle, blurAvailable)
         .onSizeChanged { bottomChromeHeightPx = it.height },
     ) {
       if (snapshot != null) {
@@ -572,7 +555,7 @@ private fun SessionDetailContent(
             .zIndex(2f)
             .imePadding()
             .navigationBarsPadding()
-            .padding(start = 16.dp, top = ChromeFade, end = 16.dp, bottom = 8.dp),
+            .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
           verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
           snapshot.todos?.let { todos ->
@@ -648,22 +631,6 @@ private fun SessionDetailContent(
           )
         }
       }
-      Box(
-        modifier = Modifier
-          .align(Alignment.TopCenter)
-          .fillMaxWidth()
-          .height(ChromeFade)
-          .zIndex(3f)
-          .background(
-            Brush.verticalGradient(
-              colorStops = arrayOf(
-                0f to Color.Transparent,
-                0.45f to tokens.fieldC.copy(alpha = 0.55f),
-                1f to tokens.fieldC,
-              ),
-            ),
-          ),
-      )
     }
 
     SnackbarHost(
@@ -954,69 +921,73 @@ private fun AssistantBubble(
 ) {
   var thinkingOpen by remember { mutableStateOf(false) }
   val tokens = LocalLiveGlass.current
-  Row(modifier = Modifier.fillMaxWidth()) {
-    Surface(
-      shape = LiveGlassShapes.Hero,
-      color = tokens.glass,
-      contentColor = tokens.ink,
-      border = BorderStroke(1.dp, tokens.edge),
-      modifier = Modifier.fillMaxWidth(0.94f),
-    ) {
-      Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+  Surface(
+    shape = LiveGlassShapes.Hero,
+    color = tokens.glass,
+    contentColor = tokens.ink,
+    border = BorderStroke(1.dp, tokens.edge),
+    modifier = Modifier.fillMaxWidth(),
+  ) {
+    Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+      Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+          text = stringResource(R.string.transcript_assistant),
+          style = MaterialTheme.typography.labelMedium,
+          fontWeight = FontWeight.SemiBold,
+          color = tokens.primary,
+        )
+        if (model != null) {
           Text(
-            text = stringResource(R.string.transcript_assistant),
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.SemiBold,
+            text = model,
+            style = CodeTextStyle,
+            color = tokens.muted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
+          )
+        }
+        if (streaming) {
+          CircularProgressIndicator(
+            modifier = Modifier.size(12.dp),
+            strokeWidth = 2.dp,
             color = tokens.primary,
           )
-          if (model != null) {
-            Text(
-              text = model,
-              style = CodeTextStyle,
-              color = tokens.muted,
-              maxLines = 1,
-              overflow = TextOverflow.Ellipsis,
-            )
-          }
-          if (streaming) {
-            CircularProgressIndicator(
-              modifier = Modifier.size(12.dp),
-              strokeWidth = 2.dp,
-              color = tokens.primary,
-            )
-          }
         }
-        if (thinking.isNotBlank()) {
-          TextButton(
-            onClick = { thinkingOpen = !thinkingOpen },
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp, vertical = 2.dp),
-          ) {
-            Icon(
-              if (thinkingOpen) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
-              contentDescription = null,
-              modifier = Modifier.size(16.dp),
-            )
-            Spacer(Modifier.width(4.dp))
-            Text(
-              stringResource(R.string.transcript_thinking),
-              style = MaterialTheme.typography.labelSmall,
-              color = tokens.muted,
-            )
-          }
-          AnimatedVisibility(visible = thinkingOpen) {
-            Text(
-              text = thinking,
-              style = MaterialTheme.typography.bodySmall,
-              color = tokens.muted,
-              modifier = Modifier.padding(bottom = 4.dp),
-            )
-          }
+      }
+      if (thinking.isNotBlank()) {
+        TextButton(
+          onClick = { thinkingOpen = !thinkingOpen },
+          contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp, vertical = 2.dp),
+        ) {
+          Icon(
+            if (thinkingOpen) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+          )
+          Spacer(Modifier.width(4.dp))
+          Text(
+            stringResource(R.string.transcript_thinking),
+            style = MaterialTheme.typography.labelSmall,
+            color = tokens.muted,
+          )
         }
-        if (text.isNotBlank()) {
-          SelectionContainer {
-            Text(text = text, style = MaterialTheme.typography.bodyMedium)
-          }
+        AnimatedVisibility(visible = thinkingOpen) {
+          MarkdownMessage(
+            markdown = thinking,
+            style = MaterialTheme.typography.bodySmall,
+            color = tokens.muted,
+            spacing = 8.dp,
+            modifier = Modifier.padding(bottom = 4.dp),
+          )
+        }
+      }
+      if (text.isNotBlank()) {
+        Spacer(Modifier.height(8.dp))
+        SelectionContainer {
+          MarkdownMessage(
+            markdown = text,
+            style = MaterialTheme.typography.bodyMedium,
+          )
         }
       }
     }
@@ -1029,10 +1000,10 @@ private fun ToolCard(item: ToolCallItem) {
   val tokens = LocalLiveGlass.current
   val status = LocalSessionStatusColors.current
   Surface(
+    onClick = { expanded = !expanded },
     modifier = Modifier
       .fillMaxWidth()
-      .animateContentSize()
-      .clickable { expanded = !expanded },
+      .animateContentSize(),
     shape = LiveGlassShapes.Room,
     color = tokens.glass,
     contentColor = tokens.ink,
@@ -1266,10 +1237,10 @@ private fun SubagentBar(
   val tokens = LocalLiveGlass.current
   val status = LocalSessionStatusColors.current
   Surface(
+    onClick = onClick,
     modifier = Modifier
       .fillMaxWidth()
-      .padding(horizontal = 16.dp, vertical = 2.dp)
-      .clickable(onClick = onClick),
+      .padding(horizontal = 16.dp, vertical = 2.dp),
     shape = LiveGlassShapes.Room,
     color = tokens.glass,
     border = BorderStroke(1.dp, tokens.edge),
@@ -1372,9 +1343,9 @@ private fun SubagentsSheet(
           items(agents, key = { it.id }, contentType = { "subagent" }) { agent ->
             val color = subagentStatusColor(agent.status)
             Surface(
-              modifier = Modifier
-                .fillMaxWidth()
-                .clickable(enabled = agent.hasSessionFile) { onView(agent) },
+              onClick = { onView(agent) },
+              enabled = agent.hasSessionFile,
+              modifier = Modifier.fillMaxWidth(),
               shape = LiveGlassShapes.Room,
               color = Color.Transparent,
               border = BorderStroke(1.dp, tokens.edge),
@@ -1729,9 +1700,8 @@ private fun todoStatusLabel(status: TodoStatus): String = stringResource(
 private fun TodoStrip(todos: TodoProgress, onClick: () -> Unit) {
   val tokens = LocalLiveGlass.current
   Surface(
-    modifier = Modifier
-      .fillMaxWidth()
-      .clickable(onClick = onClick),
+    onClick = onClick,
+    modifier = Modifier.fillMaxWidth(),
     shape = LiveGlassShapes.Room,
     color = tokens.glass,
     border = BorderStroke(1.dp, tokens.edge),

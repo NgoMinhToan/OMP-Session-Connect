@@ -4,7 +4,6 @@ import android.text.format.DateUtils
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -124,10 +123,10 @@ fun SessionCard(
 
 
   Surface(
+    onClick = onClick,
     modifier = modifier
       .fillMaxWidth()
-      .alpha(if (state.status == SessionStatus.ENDED) 0.82f else 1f)
-      .clickable(onClick = onClick),
+      .alpha(if (state.status == SessionStatus.ENDED) 0.82f else 1f),
     shape = LiveGlassShapes.Room,
     color = tokens.glass,
     border = BorderStroke(

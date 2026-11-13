@@ -1,5 +1,6 @@
 package com.ompsessionconnect.ui
 
+import android.os.Build
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -11,9 +12,9 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -40,7 +41,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -59,6 +59,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -67,6 +69,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.text.style.TextOverflow
 import com.ompsessionconnect.R
 import com.ompsessionconnect.domain.model.SessionOverview
@@ -75,14 +78,21 @@ import com.ompsessionconnect.domain.model.SessionStatus
 import com.ompsessionconnect.ui.activity.ActivityScreen
 import com.ompsessionconnect.ui.activity.SessionActivityEvent
 import com.ompsessionconnect.ui.components.AddLinkDialog
+import com.ompsessionconnect.ui.components.ChromeEdge
+import com.ompsessionconnect.ui.components.ChromeFadeBand
 import com.ompsessionconnect.ui.components.ConfirmDialog
 import com.ompsessionconnect.ui.components.GlassIconButton
+import com.ompsessionconnect.ui.components.chromeBlur
+import com.ompsessionconnect.ui.components.chromeBlurStyle
+import com.ompsessionconnect.ui.components.fieldColorAt
 import com.ompsessionconnect.ui.sessions.SessionsScreen
 import com.ompsessionconnect.ui.settings.SettingsScreen
 import com.ompsessionconnect.ui.settings.SettingsViewModel
 import com.ompsessionconnect.ui.theme.LiveGlassShapes
 import com.ompsessionconnect.ui.theme.LocalLiveGlass
 import com.ompsessionconnect.ui.theme.LocalSessionStatusColors
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 
 enum class HomeTab(val labelRes: Int) {
   SESSIONS(R.string.sessions_title),
@@ -143,34 +153,49 @@ fun HomeShell(
     }
   }
 
-  Box(modifier = Modifier.fillMaxSize()) {
-    Scaffold(
-      containerColor = Color.Transparent,
-      contentWindowInsets = WindowInsets(0, 0, 0, 0),
-      topBar = {
-        HomeHeader(
-          tab = selectedTab,
-          sessions = sessions,
-          collapsed = collapsed,
-          menuOpen = menuOpen,
-          onMenuOpen = { menuOpen = true },
-          onMenuDismiss = { menuOpen = false },
-          onCloseEnded = {
-            menuOpen = false
-            closedEndedCount = endedCount
-            closeEndedConfirm = true
-          },
-        )
-      },
-      bottomBar = {
-        LiveGlassDock(
-          selected = selectedTab,
-          onSelected = onTabSelected,
-        )
-      },
-      snackbarHost = { SnackbarHost(snackbarHostState) },
-    ) { padding ->
+  val blurAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+  val hazeState = rememberHazeState()
+  var headerHeightPx by remember { mutableIntStateOf(0) }
+  var dockHeightPx by remember { mutableIntStateOf(0) }
+  val density = LocalDensity.current
+  val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
+  BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+    val rootWidthPx = with(density) { maxWidth.toPx() }
+    val rootHeightPx = with(density) { maxHeight.toPx() }
+    val fadeBandPx = with(density) { ChromeFadeBand.toPx() }
+    val headerInset = if (headerHeightPx > 0) with(density) { headerHeightPx.toDp() } else 132.dp
+    val dockInset = if (dockHeightPx > 0) with(density) { dockHeightPx.toDp() } else 112.dp
+    val headerBandFraction = (ChromeFadeBand / headerInset).coerceIn(0f, 1f)
+    val dockBandFraction = (ChromeFadeBand / dockInset).coerceIn(0f, 1f)
+    // Sample the field where each mask is still opaque, so the glass matches the wallpaper.
+    val headerField = fieldColorAt(
+      tokens,
+      rootWidthPx,
+      rootHeightPx,
+      with(density) { headerInset.toPx() } - fadeBandPx,
+    )
+    val dockField = fieldColorAt(
+      tokens,
+      rootWidthPx,
+      rootHeightPx,
+      rootHeightPx - with(density) { dockInset.toPx() } + fadeBandPx,
+    )
+    val headerStyle = remember(tokens.dark, headerField, headerBandFraction) {
+      chromeBlurStyle(headerField, tokens.dark, ChromeEdge.Top, headerBandFraction)
+    }
+    val dockStyle = remember(tokens.dark, dockField, dockBandFraction) {
+      chromeBlurStyle(dockField, tokens.dark, ChromeEdge.Bottom, dockBandFraction)
+    }
+
+    // Content is its own Haze source; header and dock sample it and blur underneath themselves.
+    Box(
+      modifier = Modifier
+        .fillMaxSize()
+        .then(if (blurAvailable) Modifier.hazeSource(hazeState) else Modifier),
+    ) {
       AnimatedContent(
+        modifier = Modifier.fillMaxSize(),
         targetState = selectedTab,
         transitionSpec = {
           (
@@ -191,30 +216,82 @@ fun HomeShell(
             onAddLink = { showAddDialog = true },
             appViewModel = appViewModel,
             listState = sessionListState,
-            modifier = Modifier.padding(padding),
+            topInset = headerInset + 8.dp,
+            bottomInset = dockInset + 92.dp,
+            modifier = Modifier.fillMaxSize(),
           )
           HomeTab.ACTIVITY -> ActivityScreen(
             sessions = sessions,
             events = activityEvents,
             onOpenSession = onOpenSession,
             listState = activityListState,
-            modifier = Modifier.padding(padding),
+            topInset = headerInset + 8.dp,
+            bottomInset = dockInset + 16.dp,
+            modifier = Modifier.fillMaxSize(),
           )
           HomeTab.SETTINGS -> SettingsScreen(
             viewModel = settingsViewModel,
             listState = settingsListState,
-            modifier = Modifier.padding(padding),
+            topInset = headerInset + 8.dp,
+            bottomInset = dockInset + 16.dp,
+            modifier = Modifier.fillMaxSize(),
           )
         }
       }
     }
 
+    Box(
+      modifier = Modifier
+        .align(Alignment.TopCenter)
+        .fillMaxWidth()
+        .zIndex(3f)
+        .chromeBlur(hazeState, headerStyle, blurAvailable)
+        .onSizeChanged { headerHeightPx = it.height }
+        .then(if (blurAvailable) Modifier else Modifier.background(headerField)),
+    ) {
+      HomeHeader(
+        tab = selectedTab,
+        sessions = sessions,
+        collapsed = collapsed,
+        menuOpen = menuOpen,
+        onMenuOpen = { menuOpen = true },
+        onMenuDismiss = { menuOpen = false },
+        onCloseEnded = {
+          menuOpen = false
+          closedEndedCount = endedCount
+          closeEndedConfirm = true
+        },
+      )
+    }
+
+    Box(
+      modifier = Modifier
+        .align(Alignment.BottomCenter)
+        .fillMaxWidth()
+        .zIndex(3f)
+        .chromeBlur(hazeState, dockStyle, blurAvailable)
+        .onSizeChanged { dockHeightPx = it.height },
+    ) {
+      LiveGlassDock(
+        selected = selectedTab,
+        onSelected = onTabSelected,
+      )
+    }
+
+    SnackbarHost(
+      hostState = snackbarHostState,
+      modifier = Modifier
+        .align(Alignment.BottomCenter)
+        .zIndex(5f)
+        .padding(bottom = dockInset + 16.dp),
+    )
+
     if (selectedTab == HomeTab.SESSIONS && !showAddDialog && !closeEndedConfirm) {
-      val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
       FloatingActionButton(
         onClick = onScan,
         modifier = Modifier
           .align(Alignment.BottomEnd)
+          .zIndex(4f)
           .padding(end = 20.dp, bottom = 84.dp + navBottom)
           .size(56.dp),
         shape = CircleShape,

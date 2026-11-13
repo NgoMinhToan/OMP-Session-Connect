@@ -3,7 +3,6 @@ package com.ompsessionconnect.ui.activity
 import android.text.format.DateUtils
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +35,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ompsessionconnect.R
@@ -183,6 +183,8 @@ fun ActivityScreen(
   events: List<SessionActivityEvent>,
   onOpenSession: (String) -> Unit,
   listState: LazyListState,
+  topInset: Dp = 0.dp,
+  bottomInset: Dp = 0.dp,
   modifier: Modifier = Modifier,
 ) {
   val tokens = LocalLiveGlass.current
@@ -200,7 +202,7 @@ fun ActivityScreen(
   LazyColumn(
     modifier = modifier.fillMaxSize(),
     state = listState,
-    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 132.dp),
+    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = topInset, bottom = bottomInset),
     verticalArrangement = Arrangement.spacedBy(10.dp),
   ) {
     item(key = "summary", contentType = "summary") {
@@ -342,7 +344,8 @@ private fun ActivitySessionRow(
     ?: overview.summary.cwd
     ?: overview.summary.roomId
   Surface(
-    modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+    onClick = onClick,
+    modifier = Modifier.fillMaxWidth(),
     shape = LiveGlassShapes.Room,
     color = tokens.glass,
     border = androidx.compose.foundation.BorderStroke(1.dp, tokens.edge),

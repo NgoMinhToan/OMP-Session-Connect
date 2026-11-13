@@ -22,6 +22,12 @@
       "computedHash": "972fa5daa71934a7b56f18b7d660bd37dad7172e9c9e0006c79c2eee8de64a5e",
       "installMode": "copy"
     },
+    "huashu-design": {
+      "source": "alchaincyf/huashu-design",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "e269c779a575e6404e36ff3caf740667a9dc062a24967fa5d486226d2d39b2ed"
+    },
     "jetpack-compose-performance": {
       "source": "android/skills",
       "sourceType": "github",
