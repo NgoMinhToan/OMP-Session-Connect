@@ -9,28 +9,12 @@ An Android client for [oh-my-pi (omp)](https://omp.sh) collab sessions. Scan the
 
 > Third-party project. It is not affiliated with oh-my-pi. Collab links are secrets: a full link can prompt and interrupt the host agent.
 
-## Screenshots
-
-<table>
-  <tr>
-    <td align="center"><img src="docs/screenshots/sessions-dark.png" width="230" alt="Session list"><br><sub>Sessions</sub></td>
-    <td align="center"><img src="docs/screenshots/detail-dark.png" width="230" alt="Live transcript"><br><sub>Live transcript</sub></td>
-    <td align="center"><img src="docs/screenshots/todos-light.png" width="230" alt="Todo progress"><br><sub>Todo progress</sub></td>
-    <td align="center"><img src="docs/screenshots/activity-dark.png" width="230" alt="Activity"><br><sub>Activity</sub></td>
-  </tr>
-  <tr>
-    <td align="center"><img src="docs/screenshots/subagents-dark.png" width="230" alt="Subagents"><br><sub>Subagents</sub></td>
-    <td align="center"><img src="docs/screenshots/scanner.png" width="230" alt="QR scanner"><br><sub>QR pairing</sub></td>
-    <td align="center"><img src="docs/screenshots/settings-light.png" width="230" alt="Settings"><br><sub>Settings</sub></td>
-    <td align="center"><img src="docs/screenshots/detail-light.png" width="230" alt="Light theme"><br><sub>Light theme</sub></td>
-  </tr>
-</table>
-
 ## Download
 
 Every push to `main` publishes a signed APK per ABI plus a universal APK for both
 build variants. Grab the newest one from
-**[Releases](https://github.com/NgoMinhToan/OMP-Session-Connect/releases/latest)**.
+**[Releases](https://github.com/NgoMinhToan/OMP-Session-Connect/releases/latest)**
+or let the app update itself (Settings → **Updates**).
 
 | Device | File to download |
 | --- | --- |
@@ -63,6 +47,7 @@ Check `SHA256SUMS.txt` in the release assets to verify a download.
 - **Theme** — System / light / dark and an optional wallpaper dynamic color (Android 12+), persisted locally.
 - **Status at a glance** — Connecting, live, working, waiting for input, read-only, reconnecting, ended, error.
 - **Notifications** — Approval requests, finished turns, agent errors/lost connections, plus a silent live notification per running session showing the newest message and (optionally) todo progress. Each category is toggled in Settings.
+- **Self-updates** — On launch the app asks GitHub for the newest release and offers it in-app. The download runs in a foreground service (progress notification, continues when the app is closed), then opens the system installer automatically while you are in the app or from the "update ready" notification. Settings shows the installed version and a manual check.
 - **Close old rooms** — Close one room from its card/menu, or bulk-close ended/failed rooms from the overflow menu.
 - **Read-only support** — A 32-byte view link can watch a room but never prompt or answer.
 

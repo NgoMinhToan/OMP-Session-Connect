@@ -7,8 +7,10 @@ import com.ompsessionconnect.data.repository.SettingsRepositoryImpl
 import com.ompsessionconnect.data.runtime.SessionRuntimeManager
 import com.ompsessionconnect.data.store.SessionStore
 import com.ompsessionconnect.data.store.SettingsStore
+import com.ompsessionconnect.data.update.UpdateRepositoryImpl
 import com.ompsessionconnect.domain.repository.SessionRepository
 import com.ompsessionconnect.domain.repository.SettingsRepository
+import com.ompsessionconnect.domain.repository.UpdateRepository
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -61,4 +63,8 @@ abstract class BindingsModule {
   @Binds
   @Singleton
   abstract fun bindSettingsRepository(impl: SettingsRepositoryImpl): SettingsRepository
+
+  @Binds
+  @Singleton
+  abstract fun bindUpdateRepository(impl: UpdateRepositoryImpl): UpdateRepository
 }

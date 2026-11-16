@@ -19,12 +19,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
@@ -56,9 +59,12 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ompsessionconnect.R
 import com.ompsessionconnect.domain.model.ThemeMode
+import com.ompsessionconnect.domain.model.UpdateRelease
+import com.ompsessionconnect.domain.model.UpdateState
 import com.ompsessionconnect.ui.theme.LiveGlassShapes
 import com.ompsessionconnect.ui.theme.LocalLiveGlass
 import com.ompsessionconnect.ui.theme.LocalSessionStatusColors
+import com.ompsessionconnect.update.formatBytes
 
 @Composable
 fun SettingsScreen(
@@ -70,6 +76,7 @@ fun SettingsScreen(
 ) {
   val tokens = LocalLiveGlass.current
   val settings by viewModel.settings.collectAsStateWithLifecycle()
+  val updateState by viewModel.updateState.collectAsStateWithLifecycle()
   val context = LocalContext.current
   var notificationsAllowed by remember { mutableStateOf(notificationsAllowed(context)) }
   val lifecycleOwner = LocalLifecycleOwner.current
@@ -188,6 +195,23 @@ fun SettingsScreen(
                 .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
             )
           },
+        )
+      }
+    }
+
+    item(key = "update-header", contentType = "header") {
+      SettingsSectionLabel(stringResource(R.string.settings_update))
+    }
+    item(key = "update-panel", contentType = "panel") {
+      SettingsPanel {
+        UpdatePanel(
+          currentVersionName = viewModel.currentVersionName,
+          currentVersionCode = viewModel.currentVersionCode,
+          buildType = viewModel.buildType,
+          state = updateState,
+          onCheck = viewModel::checkForUpdates,
+          onDownload = viewModel::downloadUpdate,
+          onInstall = viewModel::installUpdate,
         )
       }
     }
@@ -366,6 +390,159 @@ private fun NotificationPermissionRow(
         contentPadding = PaddingValues(horizontal = 0.dp, vertical = 4.dp),
       ) {
         Text(stringResource(R.string.settings_permission_open))
+      }
+    }
+  }
+}
+
+@Composable
+private fun UpdatePanel(
+  currentVersionName: String,
+  currentVersionCode: Int,
+  buildType: String,
+  state: UpdateState,
+  onCheck: () -> Unit,
+  onDownload: (UpdateRelease) -> Unit,
+  onInstall: () -> Unit,
+) {
+  val tokens = LocalLiveGlass.current
+  val status = LocalSessionStatusColors.current
+  Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+      Column(modifier = Modifier.weight(1f)) {
+        Text(
+          stringResource(R.string.settings_version_title),
+          style = MaterialTheme.typography.titleSmall,
+          color = tokens.ink,
+        )
+        Text(
+          stringResource(
+            R.string.settings_version_value,
+            currentVersionName,
+            currentVersionCode,
+          ),
+          style = MaterialTheme.typography.bodySmall,
+          color = tokens.muted,
+        )
+      }
+      Text(
+        stringResource(R.string.settings_version_build, buildType),
+        style = MaterialTheme.typography.labelMedium,
+        color = tokens.muted,
+      )
+    }
+    Spacer(Modifier.height(10.dp))
+    when (state) {
+      UpdateState.Idle -> {
+        Text(
+          stringResource(R.string.settings_update_idle),
+          style = MaterialTheme.typography.bodySmall,
+          color = tokens.muted,
+        )
+        Spacer(Modifier.height(8.dp))
+        Button(onClick = onCheck, shape = LiveGlassShapes.Pill) {
+          Text(stringResource(R.string.settings_update_check))
+        }
+      }
+      UpdateState.Checking -> Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+      ) {
+        CircularProgressIndicator(
+          modifier = Modifier.size(16.dp),
+          strokeWidth = 2.dp,
+          color = tokens.primary,
+        )
+        Text(
+          stringResource(R.string.settings_update_checking),
+          style = MaterialTheme.typography.bodySmall,
+          color = tokens.muted,
+        )
+      }
+      is UpdateState.UpToDate -> {
+        Text(
+          stringResource(R.string.settings_update_up_to_date),
+          style = MaterialTheme.typography.bodySmall,
+          color = status.liveText,
+        )
+        TextButton(onClick = onCheck, contentPadding = PaddingValues(0.dp)) {
+          Text(stringResource(R.string.settings_update_check))
+        }
+      }
+      is UpdateState.Available -> {
+        Text(
+          stringResource(R.string.settings_update_available, state.release.versionName),
+          style = MaterialTheme.typography.bodySmall,
+          color = tokens.ink,
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+          Button(onClick = { onDownload(state.release) }, shape = LiveGlassShapes.Pill) {
+            Text(stringResource(R.string.settings_update_download))
+          }
+          TextButton(onClick = onCheck) {
+            Text(stringResource(R.string.settings_update_check))
+          }
+        }
+      }
+      is UpdateState.Downloading -> {
+        Text(
+          stringResource(R.string.settings_update_downloading, state.percent),
+          style = MaterialTheme.typography.bodySmall,
+          color = tokens.ink,
+        )
+        Spacer(Modifier.height(6.dp))
+        LinearProgressIndicator(
+          progress = { state.fraction },
+          modifier = Modifier.fillMaxWidth(),
+          color = tokens.primary,
+          trackColor = tokens.hairline,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+          stringResource(
+            R.string.settings_update_downloading_size,
+            formatBytes(state.downloadedBytes),
+            formatBytes(state.totalBytes),
+          ),
+          style = MaterialTheme.typography.bodySmall,
+          color = tokens.muted,
+        )
+      }
+      is UpdateState.ReadyToInstall -> {
+        Text(
+          stringResource(R.string.settings_update_ready, state.release.versionName),
+          style = MaterialTheme.typography.bodySmall,
+          color = status.liveText,
+        )
+        Spacer(Modifier.height(8.dp))
+        Button(onClick = onInstall, shape = LiveGlassShapes.Pill) {
+          Text(stringResource(R.string.settings_update_install))
+        }
+      }
+      is UpdateState.Failed -> {
+        Text(
+          stringResource(
+            R.string.settings_update_failed,
+            state.message ?: stringResource(R.string.error_generic),
+          ),
+          style = MaterialTheme.typography.bodySmall,
+          color = status.errorText,
+        )
+        Spacer(Modifier.height(8.dp))
+        val retryRelease = state.release
+        if (retryRelease != null) {
+          Button(
+            onClick = { onDownload(retryRelease) },
+            shape = LiveGlassShapes.Pill,
+          ) {
+            Text(stringResource(R.string.action_retry))
+          }
+        } else {
+          Button(onClick = onCheck, shape = LiveGlassShapes.Pill) {
+            Text(stringResource(R.string.settings_update_check))
+          }
+        }
       }
     }
   }

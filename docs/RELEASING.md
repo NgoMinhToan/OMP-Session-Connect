@@ -59,6 +59,29 @@ ABIs: `armeabi-v7a`, `arm64-v8a`, `x86`, `x86_64`, `universal`. Names follow
 `OMP-Session-Connect-<version>-<variant>-<abi>.apk`; `dist/SHA256SUMS.txt` in the
 same release carries the checksums.
 
+## In-app updates
+
+The app reads
+`https://api.github.com/repos/NgoMinhToan/OMP-Session-Connect/releases/latest`
+on launch (no token, 60 requests/hour per IP) and in Settings → **Updates**.
+It compares `versionName` numerically against the installed build, then picks the
+`release` asset (never `release-nonminify`) for the device ABI, falling back to
+`universal`.
+
+The updater depends on the release assets keeping this shape:
+
+```
+OMP-Session-Connect-<versionName>-release-<abi>.apk
+abi ∈ armeabi-v7a | arm64-v8a | x86 | x86_64 | universal
+```
+
+Downloads run in a `dataSync` foreground service, resume from a partial
+`.part` file, are written under `filesDir/updates/`, and are exposed to the
+system installer through a `FileProvider`. Installing requires the
+`REQUEST_INSTALL_PACKAGES` grant ("install unknown apps" for this app); the
+update flow opens that settings page when it is missing. A release must keep the
+same signing key, otherwise Android rejects the install.
+
 ## Signing key
 
 `keystore/omp-release.jks` and `keystore/keystore.properties` are committed so

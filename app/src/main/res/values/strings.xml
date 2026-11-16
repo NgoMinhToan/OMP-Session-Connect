@@ -184,6 +184,52 @@
   <string name="notif_progress_complete">All tasks closed</string>
   <string name="notif_progress_text">%1$d/%2$d · %3$s</string>
 
+  <string name="settings_update">Updates</string>
+  <string name="settings_version_title">Current version</string>
+  <string name="settings_version_value">%1$s (%2$d)</string>
+  <string name="settings_version_build">%1$s build</string>
+  <string name="settings_update_idle">Check GitHub releases for a newer build.</string>
+  <string name="settings_update_checking">Checking for updates…</string>
+  <string name="settings_update_up_to_date">You have the latest version.</string>
+  <string name="settings_update_available">Version %1$s is available.</string>
+  <string name="settings_update_check">Check for updates</string>
+  <string name="settings_update_download">Download update</string>
+  <string name="settings_update_downloading">Downloading %1$d%%</string>
+  <string name="settings_update_downloading_size">%1$s of %2$s</string>
+  <string name="settings_update_ready">Version %1$s is downloaded and ready to install.</string>
+  <string name="settings_update_install">Install update</string>
+  <string name="settings_update_failed">Update failed: %1$s</string>
+
+  <string name="update_dialog_available_title">Update available</string>
+  <string name="update_dialog_available_body">Version %1$s is available.</string>
+  <string name="update_dialog_download">Download</string>
+  <string name="update_dialog_later">Later</string>
+  <string name="update_dialog_downloading_title">Downloading update</string>
+  <string name="update_dialog_downloading_body">Version %1$s · %2$d%%</string>
+  <string name="update_dialog_hide">Hide</string>
+  <string name="update_dialog_ready_title">Update ready</string>
+  <string name="update_dialog_ready_body">Version %1$s has been downloaded. Install it now to finish updating.</string>
+  <string name="update_dialog_install">Install</string>
+  <string name="update_dialog_failed_title">Update failed</string>
+  <string name="update_dialog_retry">Retry</string>
+
+  <string name="notif_channel_update">App updates</string>
+  <string name="notif_channel_update_desc">New versions and downloaded updates</string>
+  <string name="notif_channel_update_progress">Update download</string>
+  <string name="notif_channel_update_progress_desc">Silent progress while an update downloads</string>
+  <string name="notif_update_available_title">OMP update available</string>
+  <string name="notif_update_available_text">Version %1$s is ready to download.</string>
+  <string name="notif_update_action_download">Update</string>
+  <string name="notif_update_downloading_title">Downloading OMP %1$s</string>
+  <string name="notif_update_downloading_text">%1$d%% · %2$s of %3$s</string>
+  <string name="notif_update_downloading_unknown">%1$s downloaded</string>
+  <string name="notif_update_ready_title">OMP update ready</string>
+  <string name="notif_update_ready_text">Version %1$s downloaded. Tap to install.</string>
+  <string name="notif_update_failed_title">OMP update %1$s failed</string>
+
+  <string name="update_error_start">Could not start the download.</string>
+  <string name="update_error_missing_file">The downloaded file is no longer available.</string>
+
   <string name="voice_start">Voice input</string>
   <string name="voice_stop">Stop listening</string>
   <string name="voice_listening">Listening…</string>
